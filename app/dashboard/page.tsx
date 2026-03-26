@@ -7,69 +7,133 @@ import Link from 'next/link'
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',')
 
+/* ── Types ── */
 interface Ticket {
-  id: string
-  title: string
-  description: string
-  status: 'Ouvert' | 'En Cours' | 'Fermé'
-  priority: 'Haute' | 'Moyenne' | 'Basse'
-  created_at: string
-  replies: { id: string }[]
+  id: string; title: string; description: string
+  status: 'Ouvert' | 'En Cours' | 'Fermé'; priority: 'Haute' | 'Moyenne' | 'Basse'
+  created_at: string; replies: { id: string }[]
 }
-
 interface SeoResult {
-  detectedContent: string
-  suggestedAltText: string
-  metaTitle: string
-  metaDescription: string
-  keywords: string[]
-  seoScore: number
-  improvements: string[]
-  imageCategory: string
-  tone: string
+  detectedContent: string; suggestedAltText: string; metaTitle: string
+  metaDescription: string; keywords: string[]; seoScore: number
+  improvements: string[]; imageCategory: string; tone: string
 }
-
 interface AnalysisHistory {
-  id: string
-  image_name: string | null
-  image_size: number | null
-  seo_score: number
-  alt_text: string
-  meta_title: string
-  keywords: string[]
-  image_category: string
-  created_at: string
+  id: string; image_name: string | null; image_size: number | null
+  seo_score: number; alt_text: string; meta_title: string
+  keywords: string[]; image_category: string; created_at: string
 }
 
+type Section = 'analyser' | 'historique' | 'tickets' | 'academy' | 'enterprise' | 'communaute' | 'accueil' | 'parametres'
+type Mode = 'dark' | 'light'
+
+/* ── Theme ── */
+const TH = {
+  dark:  { bg:'#1A1A18', bgA:'#1E1E1C', sf:'#242422', sfH:'#2A2A28', bd:'#333331', tx:'#F5F5F0', txS:'#A8A89E', txM:'#6B6B63', card:'rgba(255,255,255,.03)', glow:'#E76F2E' },
+  light: { bg:'#F5F5F0', bgA:'#EEEEE9', sf:'#FFFFFF', sfH:'#F0F0EB', bd:'#E0E0D8', tx:'#1A1A18', txS:'#6B6B63', txM:'#A8A89E', card:'rgba(0,0,0,.02)', glow:'#E76F2E' },
+}
+
+/* ── Sidebar nav items ── */
+const NAV_WORKSPACE = [
+  { id:'analyser',   icon:IconScan,     label:'Analyser' },
+  { id:'historique', icon:IconHistory,  label:'Historique' },
+  { id:'tickets',    icon:IconTicket,   label:'Mes Tickets' },
+  { id:'parametres', icon:IconSettings, label:'Paramètres' },
+]
+const NAV_PLATFORM = [
+  { id:'academy',    icon:IconAcademy,  label:'Academy' },
+  { id:'enterprise', icon:IconBuilding, label:'Enterprise' },
+  { id:'communaute', icon:IconUsers,    label:'Communauté' },
+]
+
+/* ── SVG Icons ── */
+function IconScan()     { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="M12 5v2m0 10v2M5 12h2m10 0h2"/></svg> }
+function IconHistory()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg> }
+function IconTicket()   { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 9a3 3 0 1 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2z"/></svg> }
+function IconSettings() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg> }
+function IconAcademy()  { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg> }
+function IconBuilding() { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M8 21V8M16 21V8M2 12h20M2 16h6M16 16h6"/></svg> }
+function IconUsers()    { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg> }
+function IconHome()     { return <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> }
+function IconCopy()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> }
+function IconCheck()    { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ADE80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> }
+function IconDownload() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> }
+function IconSparkle()  { return <svg width="12" height="12" viewBox="0 0 24 24" fill="#E76F2E" stroke="none"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> }
+function IconRefresh()  { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> }
+function IconSun()      { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M18.36 5.64l1.41-1.41"/></svg> }
+function IconMoon()     { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> }
+function IconUpload()   { return <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg> }
+function IconEdit()     { return <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> }
+function IconInject()   { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> }
+
+/* ══════════════════════════════════════════ MAIN ══════════════════════════════════════════ */
 export default function Dashboard() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [tab, setTab] = useState<'seo' | 'history' | 'tickets'>('seo')
+  const [mode, setMode] = useState<Mode>('dark')
+  const [section, setSection] = useState<Section>('analyser')
+  const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  // SEO Tool
-  const [image, setImage] = useState<string | null>(null)
+  /* SEO tool */
+  const [image, setImage]       = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<SeoResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState<string | null>(null)
+  const [loading, setLoading]   = useState(false)
+  const [step, setStep]         = useState<'upload' | 'analyzing' | 'result'>('upload')
+  const [result, setResult]     = useState<SeoResult | null>(null)
+  const [error, setError]       = useState<string | null>(null)
+  const [copied, setCopied]     = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
 
-  // Historique
-  const [history, setHistory] = useState<AnalysisHistory[]>([])
+  /* Editable fields */
+  const [editAlt,   setEditAlt]   = useState('')
+  const [editTitle, setEditTitle] = useState('')
+  const [editDesc,  setEditDesc]  = useState('')
+  const [editKws,   setEditKws]   = useState<string[]>([])
+  const [editedFields, setEditedFields] = useState<Set<string>>(new Set())
+  const [injected, setInjected]   = useState(false)
+
+  /* History */
+  const [history, setHistory]           = useState<AnalysisHistory[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
-  // Tickets
-  const [tickets, setTickets] = useState<Ticket[]>([])
+  /* Tickets */
+  const [tickets, setTickets]         = useState<Ticket[]>([])
   const [ticketsLoading, setTicketsLoading] = useState(false)
-  const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', priority: 'Moyenne' })
-  const [submitting, setSubmitting] = useState(false)
+  const [showForm, setShowForm]       = useState(false)
+  const [form, setForm]               = useState({ title: '', description: '', priority: 'Moyenne' })
+  const [submitting, setSubmitting]   = useState(false)
 
+  /* Scan progress */
+  const [scanProgress, setScanProgress] = useState(0)
+
+  const t = TH[mode]
+  const dk = mode === 'dark'
+
+  useEffect(() => { if (status === 'unauthenticated') router.push('/auth/signin') }, [status, router])
+
+  /* Sync editable fields when result changes */
   useEffect(() => {
-    if (status === 'unauthenticated') router.push('/auth/signin')
-  }, [status, router])
+    if (result) {
+      setEditAlt(result.suggestedAltText)
+      setEditTitle(result.metaTitle)
+      setEditDesc(result.metaDescription)
+      setEditKws([...result.keywords])
+      setEditedFields(new Set())
+      setInjected(false)
+    }
+  }, [result])
+
+  /* Fake progress bar during analysis */
+  useEffect(() => {
+    if (!loading) { setScanProgress(0); return }
+    setScanProgress(0)
+    const t1 = setTimeout(() => setScanProgress(30), 400)
+    const t2 = setTimeout(() => setScanProgress(65), 1200)
+    const t3 = setTimeout(() => setScanProgress(88), 2500)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [loading])
 
   const fetchTickets = useCallback(async () => {
     if (!session?.user?.email) return
@@ -89,597 +153,784 @@ export default function Dashboard() {
   }, [])
 
   useEffect(() => {
-    if (tab === 'tickets' && status === 'authenticated') fetchTickets()
-    if (tab === 'history' && status === 'authenticated') fetchHistory()
-  }, [tab, status, fetchTickets, fetchHistory])
+    if (section === 'tickets'    && status === 'authenticated') fetchTickets()
+    if (section === 'historique' && status === 'authenticated') fetchHistory()
+  }, [section, status, fetchTickets, fetchHistory])
 
   const submitTicket = async () => {
     if (!form.title.trim() || !form.description.trim()) return
     setSubmitting(true)
     try {
       const res = await fetch('/api/tickets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: form.title,
-          description: form.description,
-          priority: form.priority,
-          client_name: session?.user?.name || 'Client',
-          client_email: session?.user?.email,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: form.title, description: form.description, priority: form.priority, client_name: session?.user?.name || 'Client', client_email: session?.user?.email }),
       })
-      if (res.ok) {
-        setForm({ title: '', description: '', priority: 'Moyenne' })
-        setShowForm(false)
-        await fetchTickets()
-      }
+      if (res.ok) { setForm({ title: '', description: '', priority: 'Moyenne' }); setShowForm(false); await fetchTickets() }
     } finally { setSubmitting(false) }
   }
 
-  if (status === 'loading') {
-    return (
-      <div className="min-h-screen bg-[#030303] flex items-center justify-center">
-        <div className="text-white text-xl">Chargement...</div>
+  if (status === 'loading') return (
+    <div style={{ minHeight:'100vh', background:'#1A1A18', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:16 }}>
+        <div style={{ width:40, height:40, borderRadius:10, background:'linear-gradient(135deg,#E76F2E,#C4581E)', display:'flex', alignItems:'center', justifyContent:'center', animation:'spin 1s linear infinite' }}>
+          <svg viewBox="0 0 20 20" fill="none" width="20" height="20"><path d="M4 14L8 9L11 12L16 6" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M13 6H16V9" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </div>
+        <p style={{ color:'rgba(255,255,255,.4)', fontSize:13 }}>Chargement...</p>
       </div>
-    )
-  }
-
+    </div>
+  )
   if (status === 'unauthenticated') return null
 
   const isAdmin = ADMIN_EMAILS.includes(session?.user?.email || '')
 
   const handleFile = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Fichier non valide. Utilisez JPG, PNG, WEBP ou GIF.')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image trop grande. Maximum 5MB.')
-      return
-    }
-    setError(null)
-    setResult(null)
-    setImageFile(file)
+    if (!file.type.startsWith('image/')) { setError('Fichier non valide. Utilisez JPG, PNG, WEBP ou GIF.'); return }
+    if (file.size > 5 * 1024 * 1024)    { setError('Image trop grande. Maximum 5MB.'); return }
+    setError(null); setResult(null); setImageFile(file); setStep('upload')
     const reader = new FileReader()
-    reader.onload = (e) => setImage(e.target?.result as string)
+    reader.onload = e => setImage(e.target?.result as string)
     reader.readAsDataURL(file)
   }
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    const file = e.dataTransfer.files[0]
-    if (file) handleFile(file)
+    e.preventDefault(); setDragOver(false)
+    const file = e.dataTransfer.files[0]; if (file) handleFile(file)
   }
 
   const analyze = async () => {
     if (!imageFile || !image) return
-    setLoading(true)
-    setError(null)
+    setLoading(true); setError(null); setStep('analyzing')
     try {
       const base64 = image.split(',')[1]
       const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64,
-          mimeType: imageFile.type,
-          imageName: imageFile.name,
-          imageSize: imageFile.size,
-        }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: imageFile.type, imageName: imageFile.name, imageSize: imageFile.size }),
       })
-      if (!res.ok) throw new Error('Erreur lors de l\'analyse')
+      if (!res.ok) throw new Error()
       const data = await res.json()
-      setResult(data)
-    } catch (err) {
-      setError('Analyse échouée. Réessayez.')
-    } finally {
-      setLoading(false)
-    }
+      setResult(data); setStep('result')
+    } catch {
+      setError("Analyse échouée. Vérifiez votre connexion et réessayez."); setStep('upload')
+    } finally { setLoading(false) }
   }
 
   const copyText = (text: string, key: string) => {
-    navigator.clipboard.writeText(text)
-    setCopied(key)
+    navigator.clipboard.writeText(text); setCopied(key)
     setTimeout(() => setCopied(null), 2000)
   }
 
-  const scoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-400'
-    if (score >= 60) return 'text-yellow-400'
-    return 'text-red-400'
-  }
+  const markEdited = (field: string) => setEditedFields(prev => new Set(prev).add(field))
 
-  const scoreBg = (score: number) => {
-    if (score >= 80) return 'bg-green-500'
-    if (score >= 60) return 'bg-yellow-500'
-    return 'bg-red-500'
-  }
+  const resetTool = () => { setImage(null); setImageFile(null); setResult(null); setStep('upload'); setError(null) }
 
+  const scoreGrade = (s: number) => s >= 80 ? { color:'#4ADE80', label:'Excellent', bg:'rgba(74,222,128,.12)', bar:'#4ADE80' }
+    : s >= 60 ? { color:'#FACC15', label:'Correct', bg:'rgba(250,204,21,.12)', bar:'#FACC15' }
+    : { color:'#F87171', label:'À améliorer', bg:'rgba(248,113,113,.12)', bar:'#F87171' }
+
+  const openTickets = tickets.filter(tk => tk.status !== 'Fermé').length
+
+  /* ──────────────────────────────────── RENDER ──────────────────────────────────── */
   return (
-    <div className="min-h-screen bg-[#030303]">
+    <div style={{ display:'flex', minHeight:'100vh', background:t.bg, color:t.tx, fontFamily:"'Outfit',system-ui,sans-serif", transition:'background .3s,color .3s' }}>
+      {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+      <style>{`
+        *{box-sizing:border-box}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes scanLine{0%{top:0;opacity:0}5%{opacity:1}95%{opacity:1}100%{top:100%;opacity:0}}
+        @keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
+        @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes glow{0%,100%{box-shadow:0 0 20px #E76F2E15}50%{box-shadow:0 0 40px #E76F2E35}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+        .nav-item{transition:all .2s cubic-bezier(.16,1,.3,1);border-radius:10px;cursor:pointer;user-select:none}
+        .nav-item:hover{background:rgba(231,111,46,.08)!important;color:#E76F2E!important}
+        .nav-item.active{background:rgba(231,111,46,.14)!important;color:#E76F2E!important}
+        .btn-primary{transition:all .25s;cursor:pointer}
+        .btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px #E76F2E30!important}
+        .btn-ghost{transition:all .2s;cursor:pointer}
+        .btn-ghost:hover{border-color:#E76F2E!important;color:#E76F2E!important}
+        .card-enter{animation:fadeUp .4s cubic-bezier(.16,1,.3,1) both}
+        .field-card{transition:border-color .2s,box-shadow .2s}
+        .field-card:focus-within{border-color:#E76F2E50!important;box-shadow:0 0 0 3px #E76F2E08!important}
+        .copy-btn{transition:all .2s;opacity:.5}
+        .copy-btn:hover{opacity:1}
+        .kw-tag{transition:all .15s;cursor:pointer}
+        .kw-tag:hover{background:#E76F2E20!important;border-color:#E76F2E50!important}
+        .scan-bar{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#E76F2E,transparent);animation:scanLine 1.8s ease-in-out infinite}
+        .shimmer{position:relative;overflow:hidden}
+        .shimmer::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(231,111,46,.06),transparent);animation:shimmer 2s ease-in-out infinite}
+        .score-ring{filter:drop-shadow(0 0 12px currentColor)}
+        .upload-zone{animation:glow 3s infinite}
+        ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(231,111,46,.2);border-radius:4px}
+        input,textarea,select{color:inherit;font-family:inherit}
+        textarea{resize:vertical}
+      `}</style>
 
-      {/* Navbar */}
-      <nav className="border-b border-gray-800 px-8 py-4">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <span className="text-2xl font-black text-white tracking-tight">
-            SEO<span className="text-orange-500">PIC</span>
-          </span>
-          <div className="flex items-center gap-4">
-            {isAdmin && (
-              <Link href="/admin" className="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-                Admin Panel
-              </Link>
-            )}
-            <div className="flex items-center gap-3">
-              {session?.user?.image && (
-                <img src={session.user.image} alt="avatar" className="w-9 h-9 rounded-full border-2 border-orange-500" />
-              )}
-              <div className="text-right hidden md:block">
-                <p className="text-white text-sm font-semibold">{session?.user?.name}</p>
-                <p className="text-gray-400 text-xs">{session?.user?.email}</p>
-              </div>
+      {/* ═══════════════════ SIDEBAR ═══════════════════ */}
+      <aside style={{ width: sidebarOpen ? 240 : 64, flexShrink:0, background:t.bgA, borderRight:`1px solid ${t.bd}`, display:'flex', flexDirection:'column', position:'sticky', top:0, height:'100vh', transition:'width .3s cubic-bezier(.16,1,.3,1)', overflow:'hidden' }}>
+
+        {/* Logo */}
+        <div style={{ padding:sidebarOpen ? '20px 18px 14px' : '20px 14px 14px', borderBottom:`1px solid ${t.bd}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9, overflow:'hidden' }}>
+            <div style={{ width:30, height:30, background:'linear-gradient(135deg,#E76F2E,#C4581E)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 0 12px #E76F2E30' }}>
+              <svg viewBox="0 0 20 20" fill="none" width="15" height="15"><path d="M4 14L8 9L11 12L16 6" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M13 6H16V9" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <button
-              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
-              className="border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white px-4 py-2 rounded-lg text-sm transition"
-            >
-              Déconnexion
-            </button>
+            {sidebarOpen && <span style={{ fontWeight:800, fontSize:15, letterSpacing:-0.3, whiteSpace:'nowrap', overflow:'hidden' }}>SEOPIC</span>}
           </div>
-        </div>
-      </nav>
-
-      <div className="max-w-5xl mx-auto px-8 py-10">
-
-        {/* Onglets */}
-        <div className="flex gap-2 mb-10 border-b border-gray-800 pb-4">
-          <button
-            onClick={() => setTab('seo')}
-            className={`px-6 py-2.5 rounded-lg font-semibold text-sm transition ${
-              tab === 'seo' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            🔍 Analyse SEO Image
-          </button>
-          <button
-            onClick={() => setTab('history')}
-            className={`px-6 py-2.5 rounded-lg font-semibold text-sm transition ${
-              tab === 'history' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            📂 Historique
-          </button>
-          <button
-            onClick={() => setTab('tickets')}
-            className={`px-6 py-2.5 rounded-lg font-semibold text-sm transition flex items-center gap-2 ${
-              tab === 'tickets' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            🎫 Mes Tickets
-            {tickets.filter(t => t.status !== 'Fermé').length > 0 && (
-              <span className="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {tickets.filter(t => t.status !== 'Fermé').length}
-              </span>
-            )}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background:'none', border:'none', cursor:'pointer', color:t.txM, flexShrink:0, padding:2 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              {sidebarOpen ? <><path d="M18 6L6 18M6 6l12 12"/></> : <><path d="M3 12h18M3 6h18M3 18h18"/></>}
+            </svg>
           </button>
         </div>
 
-        {/* ===== ONGLET HISTORIQUE ===== */}
-        {tab === 'history' && (
-          <div>
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-white">Historique des analyses</h2>
-              <p className="text-gray-400 text-sm mt-1">Vos 20 dernières analyses SEO</p>
+        {/* Plan card */}
+        {sidebarOpen && (
+          <div style={{ margin:'12px 12px 4px', background:'linear-gradient(135deg,rgba(231,111,46,.12),rgba(231,111,46,.04))', border:'1px solid rgba(231,111,46,.2)', borderRadius:12, padding:'12px 14px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <span style={{ fontSize:10, fontWeight:700, color:'#E76F2E', textTransform:'uppercase', letterSpacing:1 }}>Découverte</span>
+              <span style={{ fontSize:10, color:t.txM }}>5 restants</span>
             </div>
-            {historyLoading ? (
-              <div className="text-center py-10 text-gray-500">Chargement...</div>
-            ) : history.length === 0 ? (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
-                <p className="text-4xl mb-4">📂</p>
-                <p className="text-white font-semibold">Aucune analyse pour l'instant</p>
-                <p className="text-gray-500 text-sm mt-2">Analysez une image pour voir votre historique ici</p>
-                <button
-                  onClick={() => setTab('seo')}
-                  className="mt-4 bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-semibold text-sm transition"
-                >
-                  Analyser une image
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {history.map((h) => {
-                  const scoreColor = h.seo_score >= 80 ? 'text-green-400' : h.seo_score >= 60 ? 'text-yellow-400' : 'text-red-400'
-                  return (
-                    <div key={h.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className={`text-2xl font-black ${scoreColor}`}>{h.seo_score}</span>
-                            <span className="text-gray-500 text-xs">/100</span>
-                            {h.image_category && (
-                              <span className="text-xs text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">
-                                {h.image_category}
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-white font-semibold truncate">{h.meta_title || '—'}</p>
-                          <p className="text-gray-400 text-sm truncate mt-0.5">{h.alt_text}</p>
-                          {h.keywords?.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {h.keywords.slice(0, 4).map((kw, i) => (
-                                <span key={i} className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{kw}</span>
-                              ))}
-                              {h.keywords.length > 4 && (
-                                <span className="text-xs text-gray-600">+{h.keywords.length - 4}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-gray-500 text-xs">{new Date(h.created_at).toLocaleDateString('fr-FR')}</p>
-                          {h.image_name && (
-                            <p className="text-gray-600 text-xs mt-0.5 max-w-[120px] truncate">{h.image_name}</p>
-                          )}
-                          {h.image_size && (
-                            <p className="text-gray-700 text-xs">{(h.image_size / 1024).toFixed(0)} KB</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
+            <div style={{ background:t.bd, borderRadius:4, height:4, overflow:'hidden' }}>
+              <div style={{ width:'100%', height:'100%', background:'linear-gradient(90deg,#E76F2E,#F2994A)', borderRadius:4 }}/>
+            </div>
+            <p style={{ fontSize:10, color:t.txM, marginTop:6 }}>5 / 5 analyses utilisées</p>
           </div>
         )}
 
-        {/* ===== ONGLET TICKETS ===== */}
-        {tab === 'tickets' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-white">Mes Tickets</h2>
-                <p className="text-gray-400 text-sm mt-1">Suivez vos demandes et échangez avec l'équipe VALT</p>
+        {/* Nav: Workspace */}
+        <div style={{ flex:1, overflowY:'auto', padding:'8px 8px 0' }}>
+          {sidebarOpen && <p style={{ fontSize:9, fontWeight:700, color:t.txM, textTransform:'uppercase', letterSpacing:1.5, padding:'12px 10px 6px' }}>Workspace</p>}
+          {NAV_WORKSPACE.map(item => {
+            const active = section === item.id
+            const badge = item.id === 'tickets' && openTickets > 0 ? openTickets : null
+            return (
+              <div key={item.id} onClick={() => setSection(item.id as Section)} className={`nav-item${active ? ' active' : ''}`} style={{ display:'flex', alignItems:'center', gap:10, padding:sidebarOpen ? '9px 12px' : '9px', color: active ? '#E76F2E' : t.txS, marginBottom:2, justifyContent: sidebarOpen ? 'flex-start' : 'center' }}>
+                <item.icon/>
+                {sidebarOpen && <span style={{ fontSize:13, fontWeight:500, flex:1 }}>{item.label}</span>}
+                {sidebarOpen && badge && <span style={{ background:'#E76F2E', color:'#fff', fontSize:9, fontWeight:700, padding:'1px 5px', borderRadius:6 }}>{badge}</span>}
               </div>
-              <button
-                onClick={() => setShowForm(!showForm)}
-                className="bg-orange-500 hover:bg-orange-600 text-white px-5 py-2.5 rounded-lg font-semibold text-sm transition"
-              >
-                + Nouveau Ticket
+            )
+          })}
+
+          {sidebarOpen && <p style={{ fontSize:9, fontWeight:700, color:t.txM, textTransform:'uppercase', letterSpacing:1.5, padding:'16px 10px 6px' }}>Plateforme</p>}
+          {!sidebarOpen && <div style={{ height:1, background:t.bd, margin:'8px 4px' }}/>}
+          {NAV_PLATFORM.map(item => {
+            const active = section === item.id
+            return (
+              <div key={item.id} onClick={() => setSection(item.id as Section)} className={`nav-item${active ? ' active' : ''}`} style={{ display:'flex', alignItems:'center', gap:10, padding:sidebarOpen ? '9px 12px' : '9px', color: active ? '#E76F2E' : t.txS, marginBottom:2, justifyContent: sidebarOpen ? 'flex-start' : 'center' }}>
+                <item.icon/>
+                {sidebarOpen && <span style={{ fontSize:13, fontWeight:500 }}>{item.label}</span>}
+                {item.id === 'communaute' && sidebarOpen && <span style={{ fontSize:9, background:t.bd, color:t.txM, padding:'1px 5px', borderRadius:5, marginLeft:'auto' }}>Bientôt</span>}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Bottom */}
+        <div style={{ padding:'8px 8px 16px', borderTop:`1px solid ${t.bd}` }}>
+          {/* Accueil */}
+          <Link href="/" style={{ textDecoration:'none' }}>
+            <div className="nav-item" style={{ display:'flex', alignItems:'center', gap:10, padding:sidebarOpen ? '9px 12px' : '9px', color:t.txS, marginBottom:4, justifyContent: sidebarOpen ? 'flex-start' : 'center' }}>
+              <IconHome/>
+              {sidebarOpen && <span style={{ fontSize:13, fontWeight:500 }}>Accueil</span>}
+            </div>
+          </Link>
+
+          {/* Theme toggle */}
+          <div onClick={() => setMode(dk ? 'light' : 'dark')} className="nav-item" style={{ display:'flex', alignItems:'center', gap:10, padding:sidebarOpen ? '9px 12px' : '9px', color:t.txS, marginBottom:4, cursor:'pointer', justifyContent: sidebarOpen ? 'flex-start' : 'center' }}>
+            {dk ? <IconSun/> : <IconMoon/>}
+            {sidebarOpen && <span style={{ fontSize:13, fontWeight:500 }}>{dk ? 'Mode clair' : 'Mode sombre'}</span>}
+          </div>
+
+          {/* User */}
+          {sidebarOpen ? (
+            <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', background:t.card, border:`1px solid ${t.bd}`, borderRadius:10 }}>
+              {session?.user?.image
+                ? <img src={session.user.image} alt="" style={{ width:28, height:28, borderRadius:'50%', border:'2px solid #E76F2E', flexShrink:0 }}/>
+                : <div style={{ width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#E76F2E,#C4581E)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0 }}>{(session?.user?.name || 'U')[0]}</div>
+              }
+              <div style={{ flex:1, minWidth:0 }}>
+                <p style={{ fontSize:12, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{session?.user?.name}</p>
+                <p style={{ fontSize:10, color:t.txM, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{session?.user?.email}</p>
+              </div>
+              <button onClick={() => signOut({ callbackUrl:'/auth/signin' })} style={{ background:'none', border:'none', cursor:'pointer', color:t.txM, padding:2 }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
               </button>
             </div>
-
-            {/* Formulaire */}
-            {showForm && (
-              <div className="bg-gray-900 border border-orange-500/30 rounded-2xl p-6 mb-6">
-                <h3 className="text-white font-bold mb-4">Nouveau Ticket</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-gray-400 text-sm mb-1 block">Titre *</label>
-                    <input
-                      type="text"
-                      value={form.title}
-                      onChange={(e) => setForm({ ...form, title: e.target.value })}
-                      placeholder="Ex: Problème avec l'analyse SEO"
-                      className="w-full bg-gray-800 border border-gray-700 focus:border-orange-500 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none transition"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-gray-400 text-sm mb-1 block">Description *</label>
-                    <textarea
-                      rows={4}
-                      value={form.description}
-                      onChange={(e) => setForm({ ...form, description: e.target.value })}
-                      placeholder="Décrivez votre problème ou demande en détail..."
-                      className="w-full bg-gray-800 border border-gray-700 focus:border-orange-500 text-white placeholder-gray-500 rounded-xl px-4 py-3 text-sm outline-none transition resize-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-gray-400 text-sm mb-1 block">Priorité</label>
-                    <select
-                      value={form.priority}
-                      onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                      className="bg-gray-800 border border-gray-700 text-white px-4 py-3 rounded-xl text-sm"
-                    >
-                      <option>Haute</option>
-                      <option>Moyenne</option>
-                      <option>Basse</option>
-                    </select>
-                  </div>
-                  <div className="flex gap-3 justify-end">
-                    <button
-                      onClick={() => setShowForm(false)}
-                      className="border border-gray-700 text-gray-400 hover:text-white px-5 py-2 rounded-lg text-sm transition"
-                    >
-                      Annuler
-                    </button>
-                    <button
-                      onClick={submitTicket}
-                      disabled={!form.title.trim() || !form.description.trim() || submitting}
-                      className="bg-orange-500 hover:bg-orange-600 disabled:opacity-40 text-white px-6 py-2 rounded-lg font-semibold text-sm transition"
-                    >
-                      {submitting ? 'Envoi...' : 'Envoyer le ticket'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Liste tickets */}
-            {ticketsLoading ? (
-              <div className="text-center py-10 text-gray-500">Chargement...</div>
-            ) : tickets.length === 0 ? (
-              <div className="bg-gray-900 border border-gray-800 rounded-2xl p-12 text-center">
-                <p className="text-5xl mb-4">📭</p>
-                <p className="text-white font-semibold">Aucun ticket pour l'instant</p>
-                <p className="text-gray-500 text-sm mt-2">Créez votre premier ticket pour contacter l'équipe VALT</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {tickets.map(ticket => {
-                  const statusStyle =
-                    ticket.status === 'Ouvert' ? 'bg-red-500/20 text-red-400 border-red-500/30' :
-                    ticket.status === 'En Cours' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                    'bg-green-500/20 text-green-400 border-green-500/30'
-                  return (
-                    <div key={ticket.id} className="bg-gray-900 border border-gray-800 rounded-xl p-5 hover:border-gray-700 transition">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <span className={`text-xs px-2 py-0.5 rounded-full border ${statusStyle}`}>{ticket.status}</span>
-                            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{ticket.priority}</span>
-                            {ticket.replies.length > 0 && (
-                              <span className="text-xs text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">
-                                {ticket.replies.length} réponse(s) VALT
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="text-white font-semibold">{ticket.title}</h3>
-                        </div>
-                        <p className="text-gray-500 text-xs ml-4">
-                          {new Date(ticket.created_at).toLocaleDateString('fr-FR')}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== ONGLET SEO ===== */}
-        {tab === 'seo' && (
-        <div>
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-black text-white mb-3">
-            Analyseur SEO <span className="text-orange-500">d'Images</span>
-          </h1>
-          <p className="text-gray-400 text-lg">
-            Uploadez une image — notre IA génère automatiquement votre alt text, meta title, description et keywords
-          </p>
-        </div>
-
-        {/* Upload Zone */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          onClick={() => !image && fileInputRef.current?.click()}
-          className={`border-2 border-dashed rounded-2xl p-10 text-center transition cursor-pointer mb-8 ${
-            image ? 'border-orange-500 bg-orange-500/5' : 'border-gray-700 hover:border-orange-500 bg-gray-900/50'
-          }`}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
-          />
-
-          {image ? (
-            <div>
-              <img src={image} alt="preview" className="max-h-64 mx-auto rounded-xl mb-4 object-contain" />
-              <p className="text-gray-400 text-sm mb-4">{imageFile?.name} — {((imageFile?.size || 0) / 1024).toFixed(0)} KB</p>
-              <div className="flex justify-center gap-3">
-                <button
-                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
-                  className="border border-gray-600 hover:border-gray-400 text-gray-300 px-4 py-2 rounded-lg text-sm transition"
-                >
-                  Changer l'image
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); analyze() }}
-                  disabled={loading}
-                  className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-8 py-2 rounded-lg font-bold transition"
-                >
-                  {loading ? 'Analyse en cours...' : 'Analyser le SEO'}
-                </button>
-              </div>
-            </div>
           ) : (
-            <div>
-              <div className="text-5xl mb-4">📸</div>
-              <p className="text-white font-semibold text-lg mb-2">Glissez votre image ici</p>
-              <p className="text-gray-400 mb-4">ou cliquez pour sélectionner</p>
-              <p className="text-gray-600 text-sm">JPG, PNG, WEBP, GIF — max 5MB</p>
+            <div style={{ display:'flex', justifyContent:'center', padding:'4px 0' }}>
+              {session?.user?.image
+                ? <img src={session.user.image} alt="" style={{ width:28, height:28, borderRadius:'50%', border:'2px solid #E76F2E' }}/>
+                : <div style={{ width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#E76F2E,#C4581E)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff' }}>{(session?.user?.name || 'U')[0]}</div>
+              }
             </div>
           )}
         </div>
+      </aside>
 
-        {/* Loading */}
-        {loading && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-10 text-center mb-8">
-            <div className="animate-pulse">
-              <div className="text-4xl mb-4">🤖</div>
-              <p className="text-white font-semibold text-lg">Claude AI analyse votre image...</p>
-              <p className="text-gray-400 mt-2">Génération des métadonnées SEO optimisées</p>
-            </div>
-            <div className="mt-6 bg-gray-800 rounded-full h-2 overflow-hidden">
-              <div className="bg-orange-500 h-full rounded-full animate-pulse w-3/4"></div>
-            </div>
+      {/* ═══════════════════ MAIN ═══════════════════ */}
+      <main style={{ flex:1, display:'flex', flexDirection:'column', minWidth:0, overflow:'auto' }}>
+
+        {/* Top header */}
+        <header style={{ padding:'18px 28px', borderBottom:`1px solid ${t.bd}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:16, background:t.bgA, position:'sticky', top:0, zIndex:100, backdropFilter:'blur(12px)' }}>
+          <div>
+            <h1 style={{ fontSize:18, fontWeight:700, letterSpacing:-0.3 }}>
+              {section === 'analyser'   && 'Analyse SEO'}
+              {section === 'historique' && 'Historique'}
+              {section === 'tickets'    && 'Mes Tickets'}
+              {section === 'academy'    && 'Academy'}
+              {section === 'enterprise' && 'Enterprise'}
+              {section === 'communaute' && 'Communauté'}
+              {section === 'accueil'    && 'Accueil'}
+              {section === 'parametres' && 'Paramètres'}
+            </h1>
+            <p style={{ fontSize:12, color:t.txM, marginTop:2 }}>
+              {section === 'analyser' && 'Uploadez une image · IA génère vos métadonnées SEO'}
+              {section === 'historique' && 'Vos 20 dernières analyses'}
+              {section === 'tickets' && 'Support VALT — réponse en 24h'}
+              {section === 'academy' && 'Formations SEO Images · du débutant à l\'expert'}
+            </p>
           </div>
-        )}
-
-        {/* Error */}
-        {error && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-8 text-red-400 text-center">
-            {error}
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            {isAdmin && (
+              <Link href="/admin" style={{ padding:'8px 14px', background:'rgba(231,111,46,.12)', border:'1px solid rgba(231,111,46,.3)', color:'#E76F2E', borderRadius:9, fontSize:12, fontWeight:600, textDecoration:'none' }}>
+                Admin
+              </Link>
+            )}
+            <button onClick={() => setSection('tickets')} className="btn-ghost" style={{ padding:'8px 14px', background:'transparent', border:`1px solid ${t.bd}`, color:t.txS, borderRadius:9, fontSize:12, fontWeight:500, display:'flex', alignItems:'center', gap:6 }}>
+              <IconTicket/> Nouveau ticket
+            </button>
+            <button onClick={() => setSection('academy')} className="btn-primary" style={{ padding:'8px 16px', background:'linear-gradient(135deg,#E76F2E,#C4581E)', color:'#fff', border:'none', borderRadius:9, fontSize:12, fontWeight:600, display:'flex', alignItems:'center', gap:6 }}>
+              <IconAcademy/> Academy
+            </button>
           </div>
-        )}
+        </header>
 
-        {/* Results */}
-        {result && !loading && (
-          <div className="space-y-6">
+        {/* Content */}
+        <div style={{ flex:1, padding:'24px 28px', maxWidth:1100, width:'100%', margin:'0 auto' }}>
 
-            {/* Score */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 flex items-center justify-between">
-              <div>
-                <p className="text-gray-400 text-sm mb-1">Score SEO</p>
-                <p className={`text-7xl font-black ${scoreColor(result.seoScore)}`}>{result.seoScore}</p>
-                <p className="text-gray-500 text-sm mt-1">/100</p>
+          {/* ════════════ ANALYSER ════════════ */}
+          {section === 'analyser' && (
+            <div className="card-enter">
+
+              {/* Step indicator */}
+              <div style={{ display:'flex', alignItems:'center', gap:0, marginBottom:28, background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'14px 20px', overflow:'hidden' }}>
+                {[{n:'01',label:'Upload',done:step!=='upload'},{n:'02',label:'Analyse IA',done:step==='result'},{n:'03',label:'Export',done:false}].map((s,i) => {
+                  const isActive = (i===0&&step==='upload') || (i===1&&step==='analyzing') || (i===2&&step==='result')
+                  const isDone   = s.done
+                  return (
+                    <div key={i} style={{ display:'flex', alignItems:'center', flex:1, minWidth:0 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, flex:1 }}>
+                        <div style={{ width:28, height:28, borderRadius:8, flexShrink:0, background: isDone ? '#4ADE80' : isActive ? 'linear-gradient(135deg,#E76F2E,#F2994A)' : t.bd, display:'flex', alignItems:'center', justifyContent:'center', transition:'all .4s', boxShadow: isActive ? '0 0 14px #E76F2E40' : 'none' }}>
+                          {isDone ? <IconCheck/> : <span style={{ fontSize:10, fontWeight:800, color: isActive ? '#fff' : t.txM }}>{s.n}</span>}
+                        </div>
+                        <div style={{ minWidth:0 }}>
+                          <p style={{ fontSize:12, fontWeight:600, color: isActive||isDone ? t.tx : t.txM, transition:'color .3s', whiteSpace:'nowrap' }}>{s.label}</p>
+                        </div>
+                      </div>
+                      {i < 2 && <div style={{ height:1, flex:1, margin:'0 12px', background: isDone ? '#4ADE8040' : i===0&&step!=='upload' ? '#E76F2E40' : t.bd, transition:'background .4s', maxWidth:60 }}/>}
+                    </div>
+                  )
+                })}
               </div>
-              <div className="text-right">
-                <p className="text-gray-400 text-sm mb-1">Catégorie</p>
-                <p className="text-white font-semibold">{result.imageCategory}</p>
-                <p className="text-gray-500 text-sm mt-1">{result.tone}</p>
-              </div>
-              <div className="w-32 h-32 relative">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15.9" fill="none" stroke="#1f2937" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="15.9" fill="none"
-                    stroke={result.seoScore >= 80 ? '#22c55e' : result.seoScore >= 60 ? '#eab308' : '#ef4444'}
-                    strokeWidth="3"
-                    strokeDasharray={`${result.seoScore} 100`}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className={`text-xl font-black ${scoreColor(result.seoScore)}`}>{result.seoScore}%</span>
+
+              {/* Error */}
+              {error && (
+                <div style={{ background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:10, padding:'12px 16px', marginBottom:16, color:'#F87171', fontSize:13 }}>
+                  ⚠ {error}
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Contenu détecté */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <p className="text-gray-400 text-sm mb-2">Contenu détecté</p>
-              <p className="text-white">{result.detectedContent}</p>
-            </div>
-
-            {/* Alt Text */}
-            <ResultCard
-              label="Alt Text suggéré"
-              value={result.suggestedAltText}
-              maxLen={125}
-              onCopy={() => copyText(result.suggestedAltText, 'alt')}
-              copied={copied === 'alt'}
-            />
-
-            {/* Meta Title */}
-            <ResultCard
-              label="Meta Title"
-              value={result.metaTitle}
-              maxLen={60}
-              onCopy={() => copyText(result.metaTitle, 'title')}
-              copied={copied === 'title'}
-            />
-
-            {/* Meta Description */}
-            <ResultCard
-              label="Meta Description"
-              value={result.metaDescription}
-              maxLen={160}
-              onCopy={() => copyText(result.metaDescription, 'desc')}
-              copied={copied === 'desc'}
-            />
-
-            {/* Keywords */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <div className="flex justify-between items-center mb-4">
-                <p className="text-white font-semibold">Keywords SEO</p>
-                <button
-                  onClick={() => copyText(result.keywords.join(', '), 'kw')}
-                  className="text-xs text-orange-400 hover:text-orange-300 border border-orange-500/30 px-3 py-1 rounded-lg transition"
+              {/* ── UPLOAD STATE ── */}
+              {step === 'upload' && !image && (
+                <div
+                  className="upload-zone"
+                  onDrop={handleDrop}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ position:'relative', border:`2px dashed ${dragOver ? '#E76F2E' : t.bd}`, borderRadius:20, padding:'60px 40px', textAlign:'center', cursor:'pointer', background: dragOver ? 'rgba(231,111,46,.04)' : t.sf, transition:'all .3s', overflow:'hidden' }}
                 >
-                  {copied === 'kw' ? '✓ Copié' : 'Copier tout'}
+                  <input ref={fileInputRef} type="file" accept="image/*" style={{ display:'none' }} onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}/>
+
+                  {/* Grid pattern */}
+                  <div style={{ position:'absolute', inset:0, opacity:.03, backgroundImage:`linear-gradient(${t.txM} 1px,transparent 1px),linear-gradient(90deg,${t.txM} 1px,transparent 1px)`, backgroundSize:'32px 32px', pointerEvents:'none' }}/>
+
+                  {/* Corner accents */}
+                  {[{t:0,l:0,bt:'6px 0 0 0'},{t:0,r:0,bt:'0 6px 0 0'},{b:0,l:0,bt:'0 0 0 6px'},{b:0,r:0,bt:'0 0 6px 0'}].map((pos,i) => (
+                    <div key={i} style={{ position:'absolute', width:20, height:20, border:'2px solid #E76F2E', opacity: dragOver ? .8 : .35, transition:'opacity .3s', borderRadius:pos.bt, top:pos.t!==undefined?12:undefined, bottom:(pos as any).b!==undefined?12:undefined, left:pos.l!==undefined?12:undefined, right:(pos as any).r!==undefined?12:undefined, ...(i===0?{borderRight:'none',borderBottom:'none'}:i===1?{borderLeft:'none',borderBottom:'none'}:i===2?{borderRight:'none',borderTop:'none'}:{borderLeft:'none',borderTop:'none'}) }}/>
+                  ))}
+
+                  <div style={{ position:'relative', zIndex:1 }}>
+                    <div style={{ width:64, height:64, borderRadius:18, background:'rgba(231,111,46,.1)', border:'1px solid rgba(231,111,46,.2)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px', color:'#E76F2E', animation:'float 4s ease-in-out infinite' }}>
+                      <IconUpload/>
+                    </div>
+                    <p style={{ fontSize:17, fontWeight:700, marginBottom:8 }}>Glissez votre image ici</p>
+                    <p style={{ fontSize:13, color:t.txS, marginBottom:6 }}>ou <span style={{ color:'#E76F2E', fontWeight:600 }}>cliquez pour sélectionner</span></p>
+                    <p style={{ fontSize:11, color:t.txM }}>JPG, PNG, WEBP, GIF · max 5 MB</p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── IMAGE SELECTED, NOT YET ANALYZED ── */}
+              {step === 'upload' && image && (
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+                  <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:16, overflow:'hidden' }}>
+                    <img src={image} alt="preview" style={{ width:'100%', height:220, objectFit:'cover', display:'block' }}/>
+                    <div style={{ padding:'14px 16px' }}>
+                      <p style={{ fontSize:12.5, fontWeight:600, marginBottom:3 }}>{imageFile?.name}</p>
+                      <p style={{ fontSize:11, color:t.txM }}>{((imageFile?.size||0)/1024).toFixed(0)} KB · {imageFile?.type?.split('/')[1]?.toUpperCase()}</p>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:12, justifyContent:'center' }}>
+                    <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'20px 20px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10 }}>
+                        <IconSparkle/>
+                        <span style={{ fontSize:12, fontWeight:700, color:'#E76F2E' }}>Prêt pour l'analyse IA</span>
+                      </div>
+                      <p style={{ fontSize:12, color:t.txS, lineHeight:1.6 }}>Claude AI va analyser votre image et générer automatiquement :<br/>alt text, meta title, meta description, keywords et score SEO.</p>
+                    </div>
+                    <button onClick={analyze} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:12, padding:'14px 20px', fontSize:14, fontWeight:700, fontFamily:'inherit' }}>
+                      ⚡ Lancer l'analyse IA
+                    </button>
+                    <button onClick={resetTool} className="btn-ghost" style={{ background:'transparent', border:`1px solid ${t.bd}`, color:t.txS, borderRadius:12, padding:'10px 20px', fontSize:13, fontWeight:500, fontFamily:'inherit' }}>
+                      Changer d'image
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── ANALYZING STATE ── */}
+              {step === 'analyzing' && (
+                <div style={{ background:t.sf, border:`1px solid rgba(231,111,46,.25)`, borderRadius:20, overflow:'hidden', boxShadow:'0 0 40px rgba(231,111,46,.06)' }}>
+                  {/* Image with scan */}
+                  <div style={{ position:'relative', height:220, overflow:'hidden' }}>
+                    {image && <img src={image} alt="scanning" style={{ width:'100%', height:'100%', objectFit:'cover', opacity:.5 }}/>}
+                    <div className="scan-bar"/>
+                    <div style={{ position:'absolute', inset:0, background:'linear-gradient(to bottom,rgba(231,111,46,.08),transparent,rgba(231,111,46,.08))', animation:'pulse 2s ease-in-out infinite' }}/>
+                    <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                      <div style={{ background:'rgba(0,0,0,.7)', backdropFilter:'blur(8px)', borderRadius:14, padding:'14px 22px', display:'flex', alignItems:'center', gap:12, border:'1px solid rgba(231,111,46,.3)' }}>
+                        <div style={{ width:8, height:8, borderRadius:'50%', background:'#E76F2E', animation:'pulse 1s ease-in-out infinite' }}/>
+                        <span style={{ fontSize:13, fontWeight:600, color:'#fff' }}>Claude AI analyse votre image...</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progress */}
+                  <div style={{ padding:'20px 24px' }}>
+                    {[
+                      { label:'Détection du contenu visuel', done: scanProgress > 20 },
+                      { label:'Génération des métadonnées SEO', done: scanProgress > 55 },
+                      { label:'Calcul du score SEO', done: scanProgress > 80 },
+                    ].map((item, i) => (
+                      <div key={i} style={{ display:'flex', alignItems:'center', gap:10, padding:'6px 0' }}>
+                        <div style={{ width:16, height:16, borderRadius:'50%', border:`2px solid ${item.done ? '#4ADE80' : t.bd}`, background: item.done ? '#4ADE8018' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', transition:'all .4s', flexShrink:0 }}>
+                          {item.done && <IconCheck/>}
+                        </div>
+                        <span style={{ fontSize:12, color: item.done ? t.tx : t.txM, transition:'color .4s' }}>{item.label}</span>
+                      </div>
+                    ))}
+                    <div style={{ marginTop:16, background:t.bd, borderRadius:6, height:4, overflow:'hidden' }}>
+                      <div className="shimmer" style={{ height:'100%', width:`${scanProgress}%`, background:'linear-gradient(90deg,#E76F2E,#F2994A)', borderRadius:6, transition:'width .6s cubic-bezier(.16,1,.3,1)' }}/>
+                    </div>
+                    <p style={{ fontSize:11, color:t.txM, marginTop:8, textAlign:'right' }}>{scanProgress}%</p>
+                  </div>
+                </div>
+              )}
+
+              {/* ── RESULT STATE ── */}
+              {step === 'result' && result && (
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1.4fr', gap:20, alignItems:'start' }}>
+
+                  {/* LEFT COLUMN */}
+                  <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+                    {/* Image preview */}
+                    <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:16, overflow:'hidden' }}>
+                      {image && <img src={image} alt="analyzed" style={{ width:'100%', height:180, objectFit:'cover', display:'block' }}/>}
+                      <div style={{ padding:'12px 14px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                        <div>
+                          <p style={{ fontSize:11.5, fontWeight:600 }}>{imageFile?.name}</p>
+                          <p style={{ fontSize:10.5, color:t.txM }}>{((imageFile?.size||0)/1024).toFixed(0)} KB · {result.imageCategory}</p>
+                        </div>
+                        <span style={{ fontSize:10, color:t.txS, background:t.bd, padding:'3px 8px', borderRadius:6 }}>{result.tone}</span>
+                      </div>
+                    </div>
+
+                    {/* SEO Score */}
+                    {(() => {
+                      const g = scoreGrade(result.seoScore)
+                      const circ = 2 * Math.PI * 30
+                      return (
+                        <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:16, padding:'18px 18px' }}>
+                          <p style={{ fontSize:11, fontWeight:700, color:t.txM, textTransform:'uppercase', letterSpacing:1, marginBottom:14 }}>Score SEO</p>
+                          <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+                            <div style={{ position:'relative', width:72, height:72, flexShrink:0 }}>
+                              <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform:'rotate(-90deg)' }}>
+                                <circle cx="36" cy="36" r="30" fill="none" stroke={t.bd} strokeWidth="5"/>
+                                <circle cx="36" cy="36" r="30" fill="none" stroke={g.bar} strokeWidth="5" strokeDasharray={`${(result.seoScore/100)*circ} ${circ}`} strokeLinecap="round" style={{ transition:'stroke-dasharray .8s cubic-bezier(.16,1,.3,1)', filter:`drop-shadow(0 0 8px ${g.bar})` }}/>
+                              </svg>
+                              <div style={{ position:'absolute', inset:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                                <span style={{ fontSize:16, fontWeight:900, color:g.color }}>{result.seoScore}</span>
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ display:'inline-flex', alignItems:'center', gap:5, background:g.bg, borderRadius:8, padding:'4px 10px', marginBottom:6 }}>
+                                <div style={{ width:6, height:6, borderRadius:'50%', background:g.color }}/>
+                                <span style={{ fontSize:12, fontWeight:700, color:g.color }}>{g.label}</span>
+                              </div>
+                              <p style={{ fontSize:11.5, color:t.txS }}>sur 100 points</p>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
+
+                    {/* Improvements */}
+                    <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:16, padding:'16px 18px' }}>
+                      <p style={{ fontSize:11, fontWeight:700, color:t.txM, textTransform:'uppercase', letterSpacing:1, marginBottom:12 }}>Améliorations</p>
+                      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                        {result.improvements.map((imp,i) => (
+                          <div key={i} style={{ display:'flex', gap:8, alignItems:'flex-start' }}>
+                            <span style={{ color:'#E76F2E', fontWeight:700, fontSize:12, flexShrink:0, marginTop:1 }}>→</span>
+                            <p style={{ fontSize:12, color:t.txS, lineHeight:1.55 }}>{imp}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Injection status */}
+                    <div style={{ background: injected ? 'rgba(74,222,128,.06)' : t.sf, border:`1px solid ${injected ? 'rgba(74,222,128,.25)' : t.bd}`, borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:10, transition:'all .3s' }}>
+                      <div style={{ width:8, height:8, borderRadius:'50%', background: injected ? '#4ADE80' : t.txM, boxShadow: injected ? '0 0 8px #4ADE8060' : 'none', flexShrink:0, transition:'all .3s' }}/>
+                      <span style={{ fontSize:12, color: injected ? '#4ADE80' : t.txM }}>{injected ? 'Métadonnées injectées ✓' : 'En attente d\'injection'}</span>
+                    </div>
+
+                    {/* New analysis */}
+                    <button onClick={resetTool} className="btn-ghost" style={{ background:'transparent', border:`1px solid ${t.bd}`, color:t.txS, borderRadius:10, padding:'10px 16px', fontSize:12, fontWeight:500, fontFamily:'inherit', textAlign:'center' }}>
+                      ↩ Nouvelle analyse
+                    </button>
+                  </div>
+
+                  {/* RIGHT COLUMN */}
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+
+                    {/* Detected content */}
+                    <div style={{ background:'rgba(231,111,46,.05)', border:'1px solid rgba(231,111,46,.15)', borderRadius:12, padding:'10px 14px', display:'flex', gap:8, alignItems:'flex-start' }}>
+                      <IconSparkle/>
+                      <div>
+                        <span style={{ fontSize:10, fontWeight:700, color:'#E76F2E', textTransform:'uppercase', letterSpacing:1 }}>IA Détecté · </span>
+                        <span style={{ fontSize:12, color:t.txS }}>{result.detectedContent}</span>
+                      </div>
+                    </div>
+
+                    {/* Editable fields */}
+                    {[
+                      { key:'alt',   label:'Alt Text',          max:125, value:editAlt,   set:setEditAlt   },
+                      { key:'title', label:'Meta Title',         max:60,  value:editTitle, set:setEditTitle },
+                      { key:'desc',  label:'Meta Description',   max:160, value:editDesc,  set:setEditDesc  },
+                    ].map(field => {
+                      const len = field.value.length
+                      const pct = (len / field.max) * 100
+                      const barC = pct > 100 ? '#F87171' : pct > 80 ? '#4ADE80' : '#FACC15'
+                      const isEdited = editedFields.has(field.key)
+                      return (
+                        <div key={field.key} className="field-card" style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'14px 16px' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                              <span style={{ fontSize:12, fontWeight:600 }}>{field.label}</span>
+                              <span style={{ fontSize:9, background:'rgba(231,111,46,.12)', color:'#E76F2E', padding:'1px 6px', borderRadius:5, fontWeight:700 }}>IA</span>
+                              {isEdited && <span style={{ fontSize:9, background:'rgba(74,222,128,.12)', color:'#4ADE80', padding:'1px 6px', borderRadius:5, fontWeight:700 }}>Édité</span>}
+                            </div>
+                            <div style={{ display:'flex', gap:4 }}>
+                              <button className="copy-btn" onClick={() => { const orig = field.key==='alt'?result.suggestedAltText:field.key==='title'?result.metaTitle:result.metaDescription; field.set(orig); markEdited(field.key) }} style={{ background:'none', border:'none', cursor:'pointer', color:t.txM, padding:3 }} title="Régénérer">
+                                <IconRefresh/>
+                              </button>
+                              <button className="copy-btn" onClick={() => copyText(field.value, field.key)} style={{ background:'none', border:'none', cursor:'pointer', color: copied===field.key ? '#4ADE80' : t.txM, padding:3 }}>
+                                {copied===field.key ? <IconCheck/> : <IconCopy/>}
+                              </button>
+                            </div>
+                          </div>
+                          <textarea
+                            value={field.value}
+                            onChange={e => { field.set(e.target.value); markEdited(field.key) }}
+                            rows={field.key==='desc'?3:2}
+                            style={{ width:'100%', background:'transparent', border:'none', outline:'none', fontSize:12.5, color:t.tx, lineHeight:1.6, resize:'none', padding:0 }}
+                          />
+                          <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:8 }}>
+                            <div style={{ flex:1, background:t.bd, borderRadius:3, height:2.5, overflow:'hidden' }}>
+                              <div style={{ width:`${Math.min(pct,100)}%`, height:'100%', background:barC, borderRadius:3, transition:'width .3s,background .3s' }}/>
+                            </div>
+                            <span style={{ fontSize:10, color: pct>100?'#F87171':t.txM, fontWeight:600 }}>{len}/{field.max}</span>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* Keywords */}
+                    <div className="field-card" style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'14px 16px' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                          <span style={{ fontSize:12, fontWeight:600 }}>Keywords SEO</span>
+                          <span style={{ fontSize:9, background:'rgba(231,111,46,.12)', color:'#E76F2E', padding:'1px 6px', borderRadius:5, fontWeight:700 }}>IA</span>
+                        </div>
+                        <button className="copy-btn" onClick={() => copyText(editKws.join(', '),'kws')} style={{ background:'none', border:'none', cursor:'pointer', color: copied==='kws'?'#4ADE80':t.txM, padding:3 }}>
+                          {copied==='kws' ? <IconCheck/> : <IconCopy/>}
+                        </button>
+                      </div>
+                      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+                        {editKws.map((kw,i) => (
+                          <span key={i} className="kw-tag" style={{ background:'rgba(231,111,46,.1)', border:'1px solid rgba(231,111,46,.25)', color:'#E76F2E', borderRadius:20, padding:'4px 10px', fontSize:12, fontWeight:500 }}>
+                            {kw}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Filename */}
+                    <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                      <div>
+                        <p style={{ fontSize:11, color:t.txM, marginBottom:3 }}>Suggestion de nom de fichier</p>
+                        <p style={{ fontSize:12.5, fontWeight:600, fontFamily:'monospace' }}>
+                          {editTitle.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,40) || 'image-optimisee'}-seo.jpg
+                        </p>
+                      </div>
+                      <button className="copy-btn" onClick={() => copyText(`${editTitle.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,40)||'image-optimisee'}-seo.jpg`,'fname')} style={{ background:'none', border:'none', cursor:'pointer', color: copied==='fname'?'#4ADE80':t.txM, padding:4 }}>
+                        {copied==='fname' ? <IconCheck/> : <IconCopy/>}
+                      </button>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginTop:4 }}>
+                      <button onClick={() => setInjected(true)} className="btn-primary" style={{ background: injected ? 'rgba(74,222,128,.1)' : 'linear-gradient(135deg,#E76F2E,#F2994A)', color: injected ? '#4ADE80' : '#fff', border: injected ? '1px solid rgba(74,222,128,.3)' : 'none', borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6, transition:'all .3s' }}>
+                        <IconInject/> {injected ? 'Injecté ✓' : 'Injecter métadonnées'}
+                      </button>
+                      <button className="btn-ghost" style={{ background:'transparent', border:`1px solid ${t.bd}`, color:t.txS, borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:500, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                        <IconRefresh/> Régénérer
+                      </button>
+                      <button className="btn-primary" style={{ background:'linear-gradient(135deg,#1A1A18,#2A2A28)', color:'#fff', border:'1px solid rgba(255,255,255,.1)', borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                        <IconDownload/> Télécharger JPG
+                      </button>
+                      <button className="btn-primary" style={{ background:'linear-gradient(135deg,#0F4C75,#1B6CA8)', color:'#fff', border:'none', borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6 }}>
+                        <IconDownload/> Télécharger WebP
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════════════ HISTORIQUE ════════════ */}
+          {section === 'historique' && (
+            <div className="card-enter">
+              {historyLoading ? (
+                <div style={{ textAlign:'center', padding:'60px 0', color:t.txM }}>Chargement...</div>
+              ) : history.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'60px 24px', background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20 }}>
+                  <div style={{ width:56, height:56, background:'rgba(231,111,46,.08)', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', color:'#E76F2E' }}><IconHistory/></div>
+                  <p style={{ fontWeight:600, marginBottom:6 }}>Aucune analyse pour l'instant</p>
+                  <p style={{ fontSize:13, color:t.txM, marginBottom:20 }}>Analysez une image pour voir votre historique ici</p>
+                  <button onClick={() => setSection('analyser')} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:10, padding:'10px 24px', fontSize:13, fontWeight:600, fontFamily:'inherit' }}>
+                    Analyser une image
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {history.map((h,idx) => {
+                    const g = scoreGrade(h.seo_score)
+                    return (
+                      <div key={h.id} className="card-enter" style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'14px 18px', animationDelay:`${idx*0.04}s`, display:'flex', gap:16, alignItems:'center' }}>
+                        <div style={{ width:44, height:44, borderRadius:12, background:g.bg, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <span style={{ fontSize:16, fontWeight:900, color:g.color }}>{h.seo_score}</span>
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3, flexWrap:'wrap' }}>
+                            <p style={{ fontSize:13, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{h.meta_title || '—'}</p>
+                            {h.image_category && <span style={{ fontSize:10, background:'rgba(231,111,46,.1)', color:'#E76F2E', padding:'1px 6px', borderRadius:5, flexShrink:0 }}>{h.image_category}</span>}
+                          </div>
+                          <p style={{ fontSize:11.5, color:t.txS, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', marginBottom:6 }}>{h.alt_text}</p>
+                          <div style={{ display:'flex', gap:5, flexWrap:'wrap' }}>
+                            {h.keywords?.slice(0,4).map((kw,i) => <span key={i} style={{ fontSize:10, background:t.bd, color:t.txM, padding:'2px 7px', borderRadius:5 }}>{kw}</span>)}
+                            {(h.keywords?.length||0) > 4 && <span style={{ fontSize:10, color:t.txM }}>+{h.keywords.length-4}</span>}
+                          </div>
+                        </div>
+                        <div style={{ textAlign:'right', flexShrink:0 }}>
+                          <p style={{ fontSize:11, color:t.txM }}>{new Date(h.created_at).toLocaleDateString('fr-FR')}</p>
+                          {h.image_name && <p style={{ fontSize:10, color:t.txM, marginTop:2, maxWidth:110, overflow:'hidden', textOverflow:'ellipsis' }}>{h.image_name}</p>}
+                          {h.image_size && <p style={{ fontSize:10, color:t.txM }}>{(h.image_size/1024).toFixed(0)} KB</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════════════ TICKETS ════════════ */}
+          {section === 'tickets' && (
+            <div className="card-enter">
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+                <p style={{ fontSize:13, color:t.txS }}>{tickets.length} ticket(s) · {openTickets} en cours</p>
+                <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:10, padding:'9px 18px', fontSize:12.5, fontWeight:600, fontFamily:'inherit' }}>
+                  + Nouveau ticket
                 </button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {result.keywords.map((kw, i) => (
-                  <span key={i} className="bg-orange-500/15 text-orange-400 border border-orange-500/30 px-3 py-1 rounded-full text-sm font-medium">
-                    {kw}
-                  </span>
-                ))}
+
+              {showForm && (
+                <div style={{ background:t.sf, border:'1px solid rgba(231,111,46,.2)', borderRadius:16, padding:'20px 20px', marginBottom:20 }}>
+                  <h3 style={{ fontSize:14, fontWeight:700, marginBottom:16 }}>Nouveau ticket de support</h3>
+                  <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                    <div>
+                      <label style={{ fontSize:11, color:t.txM, display:'block', marginBottom:5 }}>Titre *</label>
+                      <input type="text" value={form.title} onChange={e => setForm({...form,title:e.target.value})} placeholder="Ex: Problème avec l'analyse SEO" style={{ width:'100%', background:t.bg, border:`1px solid ${t.bd}`, borderRadius:9, padding:'10px 14px', fontSize:13, outline:'none', color:t.tx }}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11, color:t.txM, display:'block', marginBottom:5 }}>Description *</label>
+                      <textarea rows={4} value={form.description} onChange={e => setForm({...form,description:e.target.value})} placeholder="Décrivez votre problème en détail..." style={{ width:'100%', background:t.bg, border:`1px solid ${t.bd}`, borderRadius:9, padding:'10px 14px', fontSize:13, outline:'none', color:t.tx }}/>
+                    </div>
+                    <div>
+                      <label style={{ fontSize:11, color:t.txM, display:'block', marginBottom:5 }}>Priorité</label>
+                      <select value={form.priority} onChange={e => setForm({...form,priority:e.target.value})} style={{ background:t.bg, border:`1px solid ${t.bd}`, borderRadius:9, padding:'10px 14px', fontSize:13, color:t.tx, outline:'none' }}>
+                        <option>Haute</option><option>Moyenne</option><option>Basse</option>
+                      </select>
+                    </div>
+                    <div style={{ display:'flex', gap:8, justifyContent:'flex-end' }}>
+                      <button onClick={() => setShowForm(false)} className="btn-ghost" style={{ background:'transparent', border:`1px solid ${t.bd}`, color:t.txS, borderRadius:9, padding:'9px 16px', fontSize:12.5, fontWeight:500, fontFamily:'inherit' }}>Annuler</button>
+                      <button onClick={submitTicket} disabled={!form.title.trim()||!form.description.trim()||submitting} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:9, padding:'9px 20px', fontSize:12.5, fontWeight:600, fontFamily:'inherit', opacity:!form.title.trim()||!form.description.trim()||submitting?.4:1 }}>
+                        {submitting ? 'Envoi...' : 'Envoyer'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {ticketsLoading ? (
+                <div style={{ textAlign:'center', padding:'40px 0', color:t.txM }}>Chargement...</div>
+              ) : tickets.length === 0 ? (
+                <div style={{ textAlign:'center', padding:'60px 24px', background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20 }}>
+                  <div style={{ width:56, height:56, background:'rgba(231,111,46,.08)', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px', color:'#E76F2E' }}><IconTicket/></div>
+                  <p style={{ fontWeight:600, marginBottom:6 }}>Aucun ticket pour l'instant</p>
+                  <p style={{ fontSize:13, color:t.txM }}>Créez un ticket pour contacter l'équipe VALT</p>
+                </div>
+              ) : (
+                <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                  {tickets.map((tk,idx) => {
+                    const sc = tk.status==='Ouvert'?{bg:'rgba(248,113,113,.1)',c:'#F87171',bd:'rgba(248,113,113,.25)'}:tk.status==='En Cours'?{bg:'rgba(250,204,21,.1)',c:'#FACC15',bd:'rgba(250,204,21,.25)'}:{bg:'rgba(74,222,128,.1)',c:'#4ADE80',bd:'rgba(74,222,128,.25)'}
+                    const pc = tk.priority==='Haute'?'#F87171':tk.priority==='Moyenne'?'#FACC15':'#4ADE80'
+                    return (
+                      <div key={tk.id} className="card-enter" style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'14px 18px', animationDelay:`${idx*0.04}s` }}>
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                          <div style={{ flex:1 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6, flexWrap:'wrap' }}>
+                              <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background:sc.bg, color:sc.c, border:`1px solid ${sc.bd}` }}>{tk.status}</span>
+                              <span style={{ fontSize:10, padding:'2px 7px', borderRadius:5, background:t.bd, color:pc, fontWeight:600 }}>● {tk.priority}</span>
+                              {tk.replies.length > 0 && <span style={{ fontSize:10, background:'rgba(231,111,46,.1)', color:'#E76F2E', padding:'2px 7px', borderRadius:5 }}>💬 {tk.replies.length} réponse{tk.replies.length>1?'s':''} VALT</span>}
+                            </div>
+                            <p style={{ fontSize:13.5, fontWeight:600 }}>{tk.title}</p>
+                          </div>
+                          <p style={{ fontSize:11, color:t.txM, marginLeft:12, flexShrink:0 }}>{new Date(tk.created_at).toLocaleDateString('fr-FR')}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ════════════ ACADEMY ════════════ */}
+          {section === 'academy' && (
+            <div className="card-enter">
+              {[
+                { level:'Débutant', color:'#4ADE80', icon:'🌱', courses:[{t:'SEO Images 101',d:'45 min',free:true},{t:'Alt Text : les règles d\'or',d:'20 min',free:true}] },
+                { level:'Intermédiaire', color:'#FACC15', icon:'⚡', courses:[{t:'EXIF, IPTC, XMP décryptés',d:'30 min',free:true},{t:"Google Images : mine d'or",d:'25 min',free:false}] },
+                { level:'Avancé', color:'#E76F2E', icon:'🚀', courses:[{t:'Audit SEO Images complet',d:'1h 20',free:false},{t:'Stratégie de contenus visuels',d:'50 min',free:false}] },
+              ].map((lvl,i) => (
+                <div key={i} style={{ marginBottom:24 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:12 }}>
+                    <span style={{ fontSize:16 }}>{lvl.icon}</span>
+                    <span style={{ fontSize:14, fontWeight:700 }}>{lvl.level}</span>
+                    <div style={{ flex:1, height:1, background:t.bd }}/>
+                    <span style={{ fontSize:11, color:t.txM }}>{lvl.courses.length} modules</span>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+                    {lvl.courses.map((c,j) => (
+                      <div key={j} style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:12, padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', transition:'border-color .2s' }}
+                        onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor='rgba(231,111,46,.3)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor=t.bd}>
+                        <div style={{ width:36, height:36, borderRadius:9, background: c.free ? 'rgba(74,222,128,.12)' : 'rgba(231,111,46,.1)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={c.free?'#4ADE80':'#E76F2E'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <p style={{ fontSize:12.5, fontWeight:600, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.t}</p>
+                          <p style={{ fontSize:11, color:t.txM }}>{c.d}</p>
+                        </div>
+                        <span style={{ fontSize:10, fontWeight:700, padding:'2px 8px', borderRadius:6, background: c.free ? 'rgba(74,222,128,.12)' : 'rgba(231,111,46,.12)', color: c.free ? '#4ADE80' : '#E76F2E', flexShrink:0 }}>{c.free ? 'Gratuit' : 'Pro'}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ════════════ ENTERPRISE ════════════ */}
+          {section === 'enterprise' && (
+            <div className="card-enter" style={{ maxWidth:640, margin:'0 auto' }}>
+              <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20, padding:'40px 36px', textAlign:'center' }}>
+                <div style={{ width:56, height:56, background:'rgba(231,111,46,.08)', borderRadius:16, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px', color:'#E76F2E' }}><IconBuilding/></div>
+                <h2 style={{ fontSize:22, fontWeight:800, marginBottom:10 }}>Solutions Entreprise</h2>
+                <p style={{ fontSize:13.5, color:t.txS, lineHeight:1.7, maxWidth:420, margin:'0 auto 28px' }}>White label, API complète, équipes illimitées, account manager dédié et SLA garanti.</p>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:28, textAlign:'left' }}>
+                  {['White label complet','Accès API','Équipes illimitées','Account manager','SLA garanti','Onboarding dédié'].map((f,i) => (
+                    <div key={i} style={{ display:'flex', gap:7, alignItems:'center', fontSize:12.5, color:t.txS }}>
+                      <span style={{ color:'#E76F2E' }}>✓</span>{f}
+                    </div>
+                  ))}
+                </div>
+                <a href="https://wa.me/212669335438?text=Bonjour%20je%20veux%20en%20savoir%20plus%20sur%20SeoPic%20Enterprise" target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ display:'inline-block', background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', textDecoration:'none', borderRadius:12, padding:'13px 28px', fontSize:13.5, fontWeight:700 }}>
+                  Nous contacter →
+                </a>
               </div>
             </div>
+          )}
 
-            {/* Améliorations */}
-            <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-              <p className="text-white font-semibold mb-4">Améliorations recommandées</p>
-              <div className="space-y-3">
-                {result.improvements.map((imp, i) => (
-                  <div key={i} className="flex gap-3">
-                    <span className="text-orange-500 font-bold mt-0.5">→</span>
-                    <p className="text-gray-300">{imp}</p>
+          {/* ════════════ COMMUNAUTE ════════════ */}
+          {section === 'communaute' && (
+            <div className="card-enter" style={{ maxWidth:520, margin:'80px auto 0', textAlign:'center' }}>
+              <div style={{ width:64, height:64, background:'rgba(231,111,46,.06)', borderRadius:18, display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px', color:'#E76F2E', border:`1px solid rgba(231,111,46,.15)` }}><IconUsers/></div>
+              <span style={{ fontSize:11, fontWeight:700, color:'#E76F2E', textTransform:'uppercase', letterSpacing:2, background:'rgba(231,111,46,.1)', padding:'4px 14px', borderRadius:20 }}>Bientôt disponible</span>
+              <h2 style={{ fontSize:22, fontWeight:800, marginTop:16, marginBottom:10 }}>La communauté SeoPic</h2>
+              <p style={{ fontSize:13.5, color:t.txS, lineHeight:1.7 }}>Échangez avec d'autres créateurs, partagez vos stratégies SEO et accédez aux derniers hacks Google Images.</p>
+            </div>
+          )}
+
+          {/* ════════════ PARAMETRES ════════════ */}
+          {section === 'parametres' && (
+            <div className="card-enter" style={{ maxWidth:540 }}>
+              <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:16, overflow:'hidden' }}>
+                {[{ label:'Nom', value: session?.user?.name || '—' }, { label:'Email', value: session?.user?.email || '—' }].map((item,i) => (
+                  <div key={i} style={{ padding:'16px 20px', borderBottom:`1px solid ${t.bd}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span style={{ fontSize:12.5, color:t.txM }}>{item.label}</span>
+                    <span style={{ fontSize:13, fontWeight:500 }}>{item.value}</span>
                   </div>
                 ))}
+                <div style={{ padding:'16px 20px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ fontSize:12.5, color:t.txM }}>Plan</span>
+                  <span style={{ fontSize:12, fontWeight:700, color:'#E76F2E', background:'rgba(231,111,46,.1)', padding:'3px 10px', borderRadius:6 }}>Découverte</span>
+                </div>
               </div>
-            </div>
-
-            {/* Nouvelle analyse */}
-            <div className="text-center pt-4">
-              <button
-                onClick={() => { setImage(null); setImageFile(null); setResult(null) }}
-                className="border border-gray-700 hover:border-orange-500 text-gray-300 hover:text-white px-8 py-3 rounded-xl font-semibold transition"
-              >
-                Analyser une nouvelle image
+              <button onClick={() => signOut({ callbackUrl:'/auth/signin' })} className="btn-ghost" style={{ marginTop:14, background:'transparent', border:`1px solid rgba(248,113,113,.25)`, color:'#F87171', borderRadius:10, padding:'11px 0', fontSize:13, fontWeight:500, fontFamily:'inherit', width:'100%' }}>
+                Déconnexion
               </button>
             </div>
-          </div>
-        )}
-        </div>
-        )}
-      </div>
-    </div>
-  )
-}
+          )}
 
-function ResultCard({ label, value, maxLen, onCopy, copied }: {
-  label: string
-  value: string
-  maxLen: number
-  onCopy: () => void
-  copied: boolean
-}) {
-  const len = value.length
-  const pct = Math.round((len / maxLen) * 100)
-  const barColor = pct > 100 ? 'bg-red-500' : pct > 80 ? 'bg-green-500' : 'bg-yellow-500'
-
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-      <div className="flex justify-between items-center mb-3">
-        <p className="text-white font-semibold">{label}</p>
-        <button
-          onClick={onCopy}
-          className="text-xs text-orange-400 hover:text-orange-300 border border-orange-500/30 px-3 py-1 rounded-lg transition"
-        >
-          {copied ? '✓ Copié' : 'Copier'}
-        </button>
-      </div>
-      <p className="text-gray-200 mb-3">{value}</p>
-      <div className="flex items-center gap-3">
-        <div className="flex-1 bg-gray-800 rounded-full h-1.5">
-          <div
-            className={`h-full rounded-full transition-all ${barColor}`}
-            style={{ width: `${Math.min(pct, 100)}%` }}
-          />
         </div>
-        <span className={`text-xs font-mono ${pct > 100 ? 'text-red-400' : 'text-gray-500'}`}>
-          {len}/{maxLen}
-        </span>
-      </div>
+      </main>
     </div>
   )
 }
