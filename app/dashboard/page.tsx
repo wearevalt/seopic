@@ -111,6 +111,8 @@ export default function Dashboard() {
   const [showForm, setShowForm]       = useState(false)
   const [form, setForm]               = useState({ title: '', description: '', priority: 'Moyenne' })
   const [submitting, setSubmitting]   = useState(false)
+  const [ticketError, setTicketError] = useState<string | null>(null)
+  const [ticketSuccess, setTicketSuccess] = useState(false)
 
   /* Scan progress */
   const [scanProgress, setScanProgress] = useState(0)
@@ -127,10 +129,10 @@ export default function Dashboard() {
   /* Academy */
   const [activeVideo, setActiveVideo] = useState(0)
   const [newComment, setNewComment]   = useState('')
-  const [comments, setComments]       = useState<{author:string,text:string,time:string}[]>([
-    { author:'Karim B.', text:'Formation très claire, merci !', time:'il y a 2j' },
-    { author:'Sophie L.', text:'Le module Alt Text est excellent.', time:'il y a 5j' },
-  ])
+  const [videoComments, setVideoComments] = useState<Record<number,{author:string,text:string,time:string}[]>>({
+    0: [{ author:'Karim B.', text:'Formation très claire, merci !', time:'il y a 2j' }],
+    1: [{ author:'Sophie L.', text:'Le module Alt Text est excellent.', time:'il y a 5j' }],
+  })
 
   const t = TH[mode]
   const dk = mode === 'dark'
@@ -183,13 +185,24 @@ export default function Dashboard() {
 
   const submitTicket = async () => {
     if (!form.title.trim() || !form.description.trim()) return
-    setSubmitting(true)
+    setSubmitting(true); setTicketError(null); setTicketSuccess(false)
     try {
       const res = await fetch('/api/tickets', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: form.title, description: form.description, priority: form.priority, client_name: session?.user?.name || 'Client', client_email: session?.user?.email }),
+        body: JSON.stringify({ title: form.title.trim(), description: form.description.trim(), priority: form.priority, client_name: session?.user?.name || 'Client', client_email: session?.user?.email || '' }),
       })
-      if (res.ok) { setForm({ title: '', description: '', priority: 'Moyenne' }); setShowForm(false); await fetchTickets() }
+      const data = await res.json()
+      if (res.ok) {
+        setForm({ title: '', description: '', priority: 'Moyenne' })
+        setShowForm(false)
+        setTicketSuccess(true)
+        setTimeout(() => setTicketSuccess(false), 4000)
+        await fetchTickets()
+      } else {
+        setTicketError(data?.error || 'Erreur lors de la création du ticket.')
+      }
+    } catch {
+      setTicketError('Connexion impossible. Vérifiez votre réseau.')
     } finally { setSubmitting(false) }
   }
 
@@ -248,22 +261,27 @@ export default function Dashboard() {
   const resetTool = () => { setImage(null); setImageFile(null); setResult(null); setStep('upload'); setError(null) }
 
   const downloadImage = (format: 'jpeg' | 'webp') => {
-    if (!image) return
+    if (!image || !injected) return
+    const slug = (editTitle.toLowerCase().replace(/[àâä]/g,'a').replace(/[éèêë]/g,'e').replace(/[ùûü]/g,'u').replace(/[îï]/g,'i').replace(/[ôö]/g,'o').replace(/ç/g,'c').replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,40)) || 'image-optimisee'
+    const fname = `${slug}-seo.${format === 'jpeg' ? 'jpg' : 'webp'}`
     const img = new window.Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
+      canvas.width = img.naturalWidth || img.width
+      canvas.height = img.naturalHeight || img.height
       const ctx = canvas.getContext('2d')
       if (!ctx) return
       ctx.drawImage(img, 0, 0)
-      const fname = (editTitle.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'').slice(0,40)||'image-optimisee') + '-seo.' + (format === 'jpeg' ? 'jpg' : 'webp')
       canvas.toBlob(blob => {
         if (!blob) return
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
-        a.href = url; a.download = fname; a.click()
-        URL.revokeObjectURL(url)
+        a.style.display = 'none'
+        a.href = url
+        a.download = fname
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url) }, 1000)
       }, `image/${format}`, format === 'jpeg' ? 0.92 : 0.88)
     }
     img.src = image
@@ -317,15 +335,17 @@ export default function Dashboard() {
       <aside style={{ width: sidebarOpen ? 240 : 64, flexShrink:0, background:t.bgA, borderRight:`1px solid ${t.bd}`, display:'flex', flexDirection:'column', position:'sticky', top:0, height:'100vh', transition:'width .3s cubic-bezier(.16,1,.3,1)', overflow:'hidden' }}>
 
         {/* Logo */}
-        <div style={{ padding:sidebarOpen ? '20px 18px 14px' : '20px 14px 14px', borderBottom:`1px solid ${t.bd}`, display:'flex', alignItems:'center', justifyContent:'space-between', gap:10 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:9, overflow:'hidden' }}>
-            <div style={{ width:30, height:30, background:'linear-gradient(135deg,#E76F2E,#C4581E)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 0 12px #E76F2E30' }}>
-              <svg viewBox="0 0 20 20" fill="none" width="15" height="15"><path d="M4 14L8 9L11 12L16 6" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M13 6H16V9" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        <div style={{ padding:'16px 12px', borderBottom:`1px solid ${t.bd}`, display:'flex', alignItems:'center', justifyContent: sidebarOpen ? 'space-between' : 'center', gap:8, minHeight:58 }}>
+          {sidebarOpen && (
+            <div style={{ display:'flex', alignItems:'center', gap:9, overflow:'hidden', flex:1, minWidth:0 }}>
+              <div style={{ width:30, height:30, background:'linear-gradient(135deg,#E76F2E,#C4581E)', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, boxShadow:'0 0 12px #E76F2E30' }}>
+                <svg viewBox="0 0 20 20" fill="none" width="15" height="15"><path d="M4 14L8 9L11 12L16 6" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/><path d="M13 6H16V9" stroke="white" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <span style={{ fontWeight:800, fontSize:15, letterSpacing:-0.3, whiteSpace:'nowrap' }}>SEOPIC</span>
             </div>
-            {sidebarOpen && <span style={{ fontWeight:800, fontSize:15, letterSpacing:-0.3, whiteSpace:'nowrap', overflow:'hidden' }}>SEOPIC</span>}
-          </div>
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background:'none', border:'none', cursor:'pointer', color:t.txM, flexShrink:0, padding:2 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          )}
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} style={{ background:'none', border:'none', cursor:'pointer', color:t.txM, padding:4, borderRadius:7, flexShrink:0, display:'flex', alignItems:'center', justifyContent:'center' }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               {sidebarOpen ? <><path d="M18 6L6 18M6 6l12 12"/></> : <><path d="M3 12h18M3 6h18M3 18h18"/></>}
             </svg>
           </button>
@@ -777,7 +797,7 @@ export default function Dashboard() {
                       <button onClick={() => downloadImage('jpeg')} disabled={!injected} className="btn-primary" style={{ background: injected ? 'linear-gradient(135deg,#1A1A18,#2A2A28)' : t.bd, color: injected ? '#fff' : t.txM, border: injected ? '1px solid rgba(255,255,255,.1)' : 'none', borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6, cursor: injected ? 'pointer' : 'not-allowed', opacity: injected ? 1 : 0.5, transition:'all .3s' }}>
                         <IconDownload/> Télécharger JPG
                       </button>
-                      <button onClick={() => downloadImage('webp')} disabled={!injected} className="btn-primary" style={{ background: injected ? 'linear-gradient(135deg,#0F4C75,#1B6CA8)' : t.bd, color: injected ? '#fff' : t.txM, border:'none', borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6, cursor: injected ? 'pointer' : 'not-allowed', opacity: injected ? 1 : 0.5, transition:'all .3s' }}>
+                      <button onClick={() => downloadImage('webp')} disabled={!injected} className="btn-primary" style={{ background: injected ? 'rgba(231,111,46,.15)' : t.bd, color: injected ? '#E76F2E' : t.txM, border: injected ? '1px solid rgba(231,111,46,.35)' : 'none', borderRadius:10, padding:'11px 0', fontSize:12.5, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', justifyContent:'center', gap:6, cursor: injected ? 'pointer' : 'not-allowed', opacity: injected ? 1 : 0.5, transition:'all .3s' }}>
                         <IconDownload/> Télécharger WebP
                       </button>
                     </div>
@@ -837,9 +857,19 @@ export default function Dashboard() {
           {/* ════════════ TICKETS ════════════ */}
           {section === 'tickets' && (
             <div className="card-enter">
+              {ticketSuccess && (
+                <div style={{ background:'rgba(74,222,128,.08)', border:'1px solid rgba(74,222,128,.25)', borderRadius:10, padding:'12px 16px', marginBottom:16, color:'#4ADE80', fontSize:13, display:'flex', alignItems:'center', gap:8 }}>
+                  <IconCheck/> Ticket envoyé avec succès — notre équipe vous répond sous 24h.
+                </div>
+              )}
+              {ticketError && (
+                <div style={{ background:'rgba(248,113,113,.08)', border:'1px solid rgba(248,113,113,.25)', borderRadius:10, padding:'12px 16px', marginBottom:16, color:'#F87171', fontSize:13 }}>
+                  ⚠ {ticketError}
+                </div>
+              )}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-                <p style={{ fontSize:13, color:t.txS }}>{tickets.length} ticket(s) · {openTickets} en cours</p>
-                <button onClick={() => setShowForm(!showForm)} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:10, padding:'9px 18px', fontSize:12.5, fontWeight:600, fontFamily:'inherit' }}>
+                <p style={{ fontSize:13, color:t.txS }}>{tickets.length} ticket{tickets.length!==1?'s':''} · {openTickets} en cours</p>
+                <button onClick={() => { setShowForm(!showForm); setTicketError(null) }} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:10, padding:'9px 18px', fontSize:12.5, fontWeight:600, fontFamily:'inherit' }}>
                   + Nouveau ticket
                 </button>
               </div>
@@ -943,37 +973,41 @@ export default function Dashboard() {
                     <p style={{ fontSize:13.5, color:t.txS, lineHeight:1.7 }}>{v.desc}</p>
                   </div>
 
-                  {/* Comments */}
-                  <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'16px 18px' }}>
-                    <p style={{ fontSize:12, fontWeight:700, color:t.txM, textTransform:'uppercase', letterSpacing:1, marginBottom:14 }}>Commentaires ({comments.length})</p>
-                    <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:14 }}>
-                      {comments.map((c,i) => (
-                        <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
-                          <div style={{ width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#E76F2E,#C4581E)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0 }}>{c.author[0]}</div>
-                          <div>
-                            <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
-                              <span style={{ fontSize:12, fontWeight:600 }}>{c.author}</span>
-                              <span style={{ fontSize:11, color:t.txM }}>{c.time}</span>
+                  {/* Comments — per video */}
+                  {(() => {
+                    const vComments = videoComments[activeVideo] || []
+                    const addComment = () => {
+                      if (!newComment.trim()) return
+                      setVideoComments(prev => ({ ...prev, [activeVideo]: [...(prev[activeVideo]||[]), { author: session?.user?.name||'Vous', text: newComment.trim(), time: "à l'instant" }] }))
+                      setNewComment('')
+                    }
+                    return (
+                      <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'16px 18px' }}>
+                        <p style={{ fontSize:12, fontWeight:700, color:t.txM, textTransform:'uppercase', letterSpacing:1, marginBottom:14 }}>Commentaires ({vComments.length})</p>
+                        {vComments.length === 0 && <p style={{ fontSize:12.5, color:t.txM, marginBottom:14, fontStyle:'italic' }}>Soyez le premier à commenter cette vidéo.</p>}
+                        <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:14 }}>
+                          {vComments.map((c,i) => (
+                            <div key={i} style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+                              <div style={{ width:28, height:28, borderRadius:'50%', background:'linear-gradient(135deg,#E76F2E,#C4581E)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight:700, color:'#fff', flexShrink:0 }}>{c.author[0]}</div>
+                              <div>
+                                <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:3 }}>
+                                  <span style={{ fontSize:12, fontWeight:600 }}>{c.author}</span>
+                                  <span style={{ fontSize:11, color:t.txM }}>{c.time}</span>
+                                </div>
+                                <p style={{ fontSize:12.5, color:t.txS, lineHeight:1.5 }}>{c.text}</p>
+                              </div>
                             </div>
-                            <p style={{ fontSize:12.5, color:t.txS, lineHeight:1.5 }}>{c.text}</p>
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                    <div style={{ display:'flex', gap:8 }}>
-                      <input
-                        type="text"
-                        value={newComment}
-                        onChange={e => setNewComment(e.target.value)}
-                        onKeyDown={e => { if(e.key==='Enter'&&newComment.trim()){ setComments([...comments,{author:session?.user?.name||'Vous',text:newComment.trim(),time:'à l\'instant'}]); setNewComment('') }}}
-                        placeholder="Laisser un commentaire…"
-                        style={{ flex:1, background:t.bg, border:`1px solid ${t.bd}`, borderRadius:9, padding:'9px 14px', fontSize:12.5, color:t.tx, outline:'none', fontFamily:'inherit' }}
-                      />
-                      <button onClick={() => { if(newComment.trim()){ setComments([...comments,{author:session?.user?.name||'Vous',text:newComment.trim(),time:'à l\'instant'}]); setNewComment('') }}} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:9, padding:'9px 16px', fontSize:12, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', gap:5 }}>
-                        <IconComment/> Publier
-                      </button>
-                    </div>
-                  </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          <input type="text" value={newComment} onChange={e => setNewComment(e.target.value)} onKeyDown={e => e.key==='Enter' && addComment()} placeholder="Laisser un commentaire…" style={{ flex:1, background:t.bg, border:`1px solid ${t.bd}`, borderRadius:9, padding:'9px 14px', fontSize:12.5, color:t.tx, outline:'none', fontFamily:'inherit' }}/>
+                          <button onClick={addComment} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:9, padding:'9px 16px', fontSize:12, fontWeight:600, fontFamily:'inherit', display:'flex', alignItems:'center', gap:5 }}>
+                            <IconComment/> Publier
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
 
                 {/* Playlist */}
@@ -1033,70 +1067,121 @@ export default function Dashboard() {
 
           {/* ════════════ QUIZ SEO ════════════ */}
           {section === 'quiz' && (() => {
-            const QUESTIONS = [
-              { q:"Quelle est la longueur idéale d'un alt text pour Google ?", opts:['Moins de 50 caractères','Entre 100 et 125 caractères','Exactement 60 caractères','Plus de 200 caractères'], correct:1, exp:"Google recommande entre 100-125 caractères pour un alt text descriptif et riche en mots-clés." },
-              { q:"Quel format d'image est recommandé pour le SEO en 2024 ?", opts:['BMP','TIFF','WebP','GIF'], correct:2, exp:"WebP offre la meilleure compression avec qualité optimale, ce qui améliore la vitesse de chargement — facteur de ranking." },
-              { q:"Que signifie EXIF dans les métadonnées d'image ?", opts:['Extended File Info X','Exchangeable Image File Format','External Index Format','Expert Image Fix'], correct:1, exp:"EXIF (Exchangeable Image File Format) stocke des informations techniques sur la photo : appareil, date, géolocalisation..." },
-              { q:"Quel impact a la vitesse de chargement des images sur le SEO ?", opts:['Aucun impact','Impact mineur','Impact majeur sur les Core Web Vitals','Seulement sur mobile'], correct:2, exp:"Google utilise les Core Web Vitals (LCP, CLS, FID) comme facteurs de ranking — les images lentes pénalisent votre position." },
-              { q:"Pourquoi nommer correctement ses fichiers images ?", opts:['Aucune raison','Google indexe le nom du fichier','Pour s\'organiser','Pour réduire la taille'], correct:1, exp:"Google lit le nom du fichier et l'utilise pour comprendre le contenu de l'image. 'chaussure-sport-rouge.jpg' > 'IMG_001.jpg'." },
+            const ALL_Q = [
+              { cat:'Alt Text', q:"Quelle est la longueur idéale d'un alt text SEO ?", opts:['Moins de 30 caractères','Entre 80 et 125 caractères','Exactement 60 caractères','Plus de 200 caractères'], correct:1, exp:"Un alt text entre 80-125 caractères est idéal : assez descriptif pour Google, sans bourrage de mots-clés pénalisé." },
+              { cat:'Format',   q:"Quel format d'image offre le meilleur compromis qualité/poids en 2024 ?", opts:['JPEG classique','PNG 24 bits','WebP','TIFF'], correct:2, exp:"WebP réduit le poids de 25-34% par rapport au JPEG à qualité égale — améliore directement le LCP, facteur Core Web Vitals." },
+              { cat:'EXIF',     q:"EXIF signifie :", opts:['Extended File Info XML','Exchangeable Image File Format','External Image Fix','Expert Format Index'], correct:1, exp:"EXIF (Exchangeable Image File Format) est un standard qui stocke les métadonnées dans le fichier image : appareil, date, GPS, copyright." },
+              { cat:'Core Web Vitals', q:"Quel indicateur Core Web Vitals est directement impacté par les images lentes ?", opts:['FID (First Input Delay)','CLS (Cumulative Layout Shift)','LCP (Largest Contentful Paint)','TTFB (Time To First Byte)'], correct:2, exp:"Le LCP mesure le temps d'affichage du plus grand élément visible — souvent une image hero. Google l'utilise comme signal de ranking depuis 2021." },
+              { cat:'Nom fichier', q:"Quel nom de fichier est le plus optimisé SEO ?", opts:['IMG_20240301_001.jpg','photo.jpg','chaussure-running-nike-rouge.jpg','image_final_v2.png'], correct:2, exp:"Google lit le nom du fichier. 'chaussure-running-nike-rouge.jpg' indique la catégorie, la marque et la couleur — bien plus parlant qu''IMG_001.jpg'." },
+              { cat:'Schema.org', q:"Quel balisage permet d'obtenir des images enrichies (rich snippets) dans Google ?", opts:['meta og:image','Schema.org ImageObject','robots.txt','sitemap.xml'], correct:1, exp:"Le balisage Schema.org ImageObject permet à Google d'afficher vos images comme rich snippets, augmentant le CTR de 15-30%." },
+              { cat:'Lazy Load', q:"Le lazy loading des images améliore :", opts:['Le score SEO uniquement','Le LCP et l\'expérience utilisateur','Uniquement la vitesse mobile','Rien du tout'], correct:1, exp:"Le lazy loading retarde le chargement des images hors-écran, ce qui améliore le LCP et réduit la consommation de bande passante — facteur UX et SEO." },
+              { cat:'Compression', q:"Quelle compression est la meilleure pour les photos sur le web ?", opts:['Sans compression (lossless)','JPEG à 40%','WebP à 75-85%','PNG compressé'], correct:2, exp:"WebP à 75-85% offre un rapport qualité/poids optimal. En dessous de 70%, les artefacts de compression deviennent visibles et nuisent à l'expérience." },
+              { cat:'Sitemap', q:"Un sitemap image XML permet :", opts:['Rien de spécial','Bloquer l\'indexation des images','Indiquer à Google les images à indexer en priorité','Compresser automatiquement les images'], correct:2, exp:"Un sitemap image dédié (image:image) permet de soumettre jusqu'à 1000 images par URL à Google pour une indexation prioritaire et plus rapide." },
+              { cat:'Dimension', q:"Quelle dimension est idéale pour une image hero de page d'accueil SEO ?", opts:['400×300px','800×600px','1200×630px ou plus','4000×3000px'], correct:2, exp:"1200×630px est la taille optimale : adaptée au partage social (OG), chargement raisonnable et qualité suffisante pour tous les écrans." },
+              { cat:'CDN',      q:"Pourquoi utiliser un CDN pour ses images ?", opts:['Pour modifier les métadonnées','Réduire la latence géographique et améliorer le LCP','Pour convertir en WebP automatiquement','Pour générer des alt texts'], correct:1, exp:"Un CDN (Content Delivery Network) sert les images depuis le serveur le plus proche de l'utilisateur — réduit la latence de 40-70%, améliore le LCP." },
+              { cat:'IPTC',     q:"Les données IPTC dans une image permettent de stocker :", opts:['La résolution uniquement','Le copyright, les mots-clés et la description','La palette de couleurs','Le format de compression'], correct:1, exp:"IPTC (International Press Telecommunications Council) est un standard professionnel pour stocker copyright, mots-clés, description et crédits dans l'image." },
+              { cat:'Google Images', q:"Quel signal renforce le plus la visibilité dans Google Images ?", opts:['La taille du fichier','Le contexte textuel autour de l\'image + alt text pertinent','La date d\'upload','La couleur dominante'], correct:1, exp:"Google analyse le contexte : titre de la page, paragraphe adjacent, légende et alt text. Une image bien contextualisée est jusqu'à 3× plus visible." },
+              { cat:'Responsive', q:"L'attribut srcset permet :", opts:['D\'ajouter plusieurs sources vidéo','De servir différentes tailles d\'images selon l\'écran','De bloquer certains navigateurs','D\'injecter des métadonnées'], correct:1, exp:"srcset permet au navigateur de choisir la meilleure résolution selon la taille d'écran et la densité de pixels — évite de charger de grandes images sur mobile." },
+              { cat:'Copyright', q:"Injecter votre copyright dans les métadonnées EXIF permet :", opts:['Rien de juridique','De protéger vos droits et améliorer la traçabilité','D\'augmenter le poids du fichier','De bloquer le téléchargement'], correct:1, exp:"Le copyright EXIF protège légalement vos images et permet la traçabilité sur le web. C'est aussi un signal de confiance pour certains moteurs." },
             ]
+            const QUESTIONS = ALL_Q.slice(quizIndex < ALL_Q.length ? 0 : 0, ALL_Q.length)
             const q = QUESTIONS[quizIndex]
+            const total = QUESTIONS.length
+            const pct = Math.round((quizScore / total) * 100)
+            const grade = pct >= 80 ? { emoji:'🏆', label:'Expert SEO !', color:'#4ADE80', msg:'Impressionnant ! Vous maîtrisez le SEO image comme un professionnel.' }
+              : pct >= 60 ? { emoji:'⭐', label:'Bon niveau !', color:'#FACC15', msg:'Bonne base ! Quelques points à consolider pour atteindre le niveau expert.' }
+              : pct >= 40 ? { emoji:'📈', label:'En progression', color:'#E76F2E', msg:'Vous avancez bien. Consultez l\'Academy pour renforcer vos connaissances.' }
+              : { emoji:'📚', label:'À renforcer', color:'#F87171', msg:'Pas de panique — l\'Academy est faite pour vous. Commencez par les modules gratuits !' }
+
             return (
-              <div className="card-enter" style={{ maxWidth:680, margin:'0 auto' }}>
+              <div className="card-enter">
+                {/* Header info */}
+                {!quizDone && (
+                  <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, background:t.sf, border:`1px solid ${t.bd}`, borderRadius:14, padding:'14px 20px' }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6 }}>
+                        <span style={{ fontSize:12, color:t.txM }}>Question {quizIndex+1} / {total}</span>
+                        <span style={{ fontSize:11, fontWeight:700, background:'rgba(231,111,46,.12)', color:'#E76F2E', padding:'2px 8px', borderRadius:6 }}>{q.cat}</span>
+                      </div>
+                      <div style={{ background:t.bd, borderRadius:4, height:6, overflow:'hidden' }}>
+                        <div style={{ width:`${((quizIndex)/total)*100}%`, height:'100%', background:'linear-gradient(90deg,#E76F2E,#F2994A)', borderRadius:4, transition:'width .5s cubic-bezier(.16,1,.3,1)' }}/>
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', alignItems:'center', gap:6, background:'rgba(231,111,46,.08)', border:'1px solid rgba(231,111,46,.2)', borderRadius:10, padding:'8px 14px' }}>
+                      <span style={{ fontSize:18 }}>🎯</span>
+                      <div>
+                        <p style={{ fontSize:10, color:t.txM, lineHeight:1 }}>Score</p>
+                        <p style={{ fontSize:16, fontWeight:900, color:'#E76F2E', lineHeight:1.2 }}>{quizScore}<span style={{ fontSize:10, color:t.txM }}>/{quizIndex}</span></p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {quizDone ? (
-                  <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20, padding:'48px 36px', textAlign:'center' }}>
-                    <div style={{ fontSize:48, marginBottom:16 }}>{quizScore >= 4 ? '🏆' : quizScore >= 3 ? '⭐' : '📚'}</div>
-                    <h2 style={{ fontSize:24, fontWeight:800, marginBottom:8 }}>{quizScore >= 4 ? 'Expert SEO !' : quizScore >= 3 ? 'Bon niveau !' : 'À améliorer'}</h2>
-                    <p style={{ fontSize:16, color:t.txS, marginBottom:24 }}>Score : <strong style={{ color:'#E76F2E' }}>{quizScore}/{QUESTIONS.length}</strong></p>
-                    <button onClick={() => { setQuizIndex(0); setQuizAnswer(null); setQuizScore(0); setQuizDone(false) }} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:12, padding:'13px 32px', fontSize:14, fontWeight:700, fontFamily:'inherit', cursor:'pointer' }}>
-                      Recommencer le quiz
-                    </button>
+                  <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20, padding:'52px 40px', textAlign:'center', maxWidth:560, margin:'0 auto' }}>
+                    <div style={{ fontSize:56, marginBottom:16, lineHeight:1 }}>{grade.emoji}</div>
+                    <h2 style={{ fontSize:26, fontWeight:900, marginBottom:8, color:grade.color }}>{grade.label}</h2>
+                    <p style={{ fontSize:14, color:t.txS, lineHeight:1.7, maxWidth:380, margin:'0 auto 28px' }}>{grade.msg}</p>
+                    {/* Score ring */}
+                    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:20, marginBottom:28 }}>
+                      {(() => { const circ = 2*Math.PI*28; return (
+                        <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform:'rotate(-90deg)' }}>
+                          <circle cx="36" cy="36" r="28" fill="none" stroke={t.bd} strokeWidth="5"/>
+                          <circle cx="36" cy="36" r="28" fill="none" stroke={grade.color} strokeWidth="5" strokeDasharray={`${(pct/100)*circ} ${circ}`} strokeLinecap="round"/>
+                          <text x="36" y="44" textAnchor="middle" style={{ fill:grade.color, fontSize:16, fontWeight:900, transform:'rotate(90deg)', transformOrigin:'36px 36px' }}>{pct}%</text>
+                        </svg>
+                      )})()}
+                      <div style={{ textAlign:'left' }}>
+                        <p style={{ fontSize:28, fontWeight:900 }}>{quizScore}<span style={{ fontSize:14, color:t.txM }}>/{total}</span></p>
+                        <p style={{ fontSize:12, color:t.txM }}>bonnes réponses</p>
+                      </div>
+                    </div>
+                    <div style={{ display:'flex', gap:10, justifyContent:'center', flexWrap:'wrap' }}>
+                      <button onClick={() => { setQuizIndex(0); setQuizAnswer(null); setQuizScore(0); setQuizDone(false) }} className="btn-primary" style={{ background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:12, padding:'12px 28px', fontSize:13.5, fontWeight:700, fontFamily:'inherit', cursor:'pointer' }}>
+                        🔄 Recommencer
+                      </button>
+                      <button onClick={() => setSection('academy')} className="btn-ghost" style={{ background:'transparent', border:`1px solid ${t.bd}`, color:t.txS, borderRadius:12, padding:'12px 24px', fontSize:13.5, fontWeight:500, fontFamily:'inherit', cursor:'pointer' }}>
+                        📚 Aller à l'Academy
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div>
-                    {/* Progress */}
-                    <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:24 }}>
-                      <span style={{ fontSize:12, color:t.txM }}>Question {quizIndex+1}/{QUESTIONS.length}</span>
-                      <div style={{ flex:1, background:t.bd, borderRadius:4, height:5, overflow:'hidden' }}>
-                        <div style={{ width:`${((quizIndex+1)/QUESTIONS.length)*100}%`, height:'100%', background:'linear-gradient(90deg,#E76F2E,#F2994A)', borderRadius:4, transition:'width .4s' }}/>
-                      </div>
-                      <span style={{ fontSize:12, color:'#E76F2E', fontWeight:700 }}>{quizScore} pts</span>
+                  <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20, padding:'28px 28px' }}>
+                    <p style={{ fontSize:17, fontWeight:700, lineHeight:1.55, marginBottom:22, color:t.tx }}>{q.q}</p>
+
+                    <div style={{ display:'flex', flexDirection:'column', gap:9, marginBottom:20 }}>
+                      {q.opts.map((opt,i) => {
+                        const isSelected = quizAnswer === i
+                        const isCorrect  = i === q.correct
+                        const showResult = quizAnswer !== null
+                        let bg = t.bg, border = `1px solid ${t.bd}`, color = t.tx, dot = t.txM
+                        if (showResult && isCorrect)               { bg='rgba(74,222,128,.08)'; border='1.5px solid rgba(74,222,128,.5)'; color='#4ADE80'; dot='#4ADE80' }
+                        else if (showResult && isSelected && !isCorrect) { bg='rgba(248,113,113,.08)'; border='1.5px solid rgba(248,113,113,.5)'; color='#F87171'; dot='#F87171' }
+                        return (
+                          <button key={i} disabled={quizAnswer!==null} onClick={() => { setQuizAnswer(i); if(i===q.correct) setQuizScore(s=>s+1) }}
+                            style={{ background:bg, border, borderRadius:12, padding:'13px 16px', fontSize:13.5, fontWeight:500, color, fontFamily:'inherit', textAlign:'left', cursor:quizAnswer!==null?'default':'pointer', transition:'all .25s', display:'flex', alignItems:'center', gap:12 }}>
+                            <span style={{ width:28, height:28, borderRadius:8, background: showResult&&isCorrect?'rgba(74,222,128,.15)':showResult&&isSelected&&!isCorrect?'rgba(248,113,113,.15)':'rgba(231,111,46,.08)', border:`1px solid ${dot}30`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:800, flexShrink:0, color:dot, transition:'all .25s' }}>
+                              {String.fromCharCode(65+i)}
+                            </span>
+                            <span style={{ flex:1 }}>{opt}</span>
+                            {showResult && isCorrect && <span style={{ fontSize:16, flexShrink:0 }}>✓</span>}
+                            {showResult && isSelected && !isCorrect && <span style={{ fontSize:16, flexShrink:0 }}>✗</span>}
+                          </button>
+                        )
+                      })}
                     </div>
 
-                    <div style={{ background:t.sf, border:`1px solid ${t.bd}`, borderRadius:20, padding:'32px 32px' }}>
-                      <p style={{ fontSize:17, fontWeight:700, lineHeight:1.5, marginBottom:24 }}>{q.q}</p>
-
-                      <div style={{ display:'flex', flexDirection:'column', gap:10, marginBottom:20 }}>
-                        {q.opts.map((opt,i) => {
-                          const isSelected = quizAnswer === i
-                          const isCorrect  = i === q.correct
-                          const showResult = quizAnswer !== null
-                          let bg = t.bg, border = `1px solid ${t.bd}`, color = t.tx
-                          if (showResult && isCorrect) { bg='rgba(74,222,128,.1)'; border='1px solid rgba(74,222,128,.4)'; color='#4ADE80' }
-                          else if (showResult && isSelected && !isCorrect) { bg='rgba(248,113,113,.1)'; border='1px solid rgba(248,113,113,.4)'; color='#F87171' }
-                          return (
-                            <button key={i} disabled={quizAnswer!==null} onClick={() => { setQuizAnswer(i); if(i===q.correct) setQuizScore(s=>s+1) }} style={{ background:bg, border, borderRadius:12, padding:'14px 18px', fontSize:13.5, fontWeight:500, color, fontFamily:'inherit', textAlign:'left', cursor:quizAnswer!==null?'default':'pointer', transition:'all .3s', display:'flex', alignItems:'center', gap:10 }}>
-                              <span style={{ width:24, height:24, borderRadius:'50%', background: showResult&&isCorrect?'rgba(74,222,128,.2)':showResult&&isSelected&&!isCorrect?'rgba(248,113,113,.2)':'rgba(231,111,46,.1)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, flexShrink:0, color: showResult&&isCorrect?'#4ADE80':showResult&&isSelected&&!isCorrect?'#F87171':'#E76F2E' }}>
-                                {String.fromCharCode(65+i)}
-                              </span>
-                              {opt}
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      {quizAnswer !== null && (
-                        <div style={{ background:'rgba(231,111,46,.06)', border:'1px solid rgba(231,111,46,.2)', borderRadius:12, padding:'14px 18px', marginBottom:20 }}>
-                          <p style={{ fontSize:13, color:t.txS, lineHeight:1.6 }}>💡 {q.exp}</p>
+                    {quizAnswer !== null && (
+                      <>
+                        <div style={{ background:'rgba(231,111,46,.05)', border:'1px solid rgba(231,111,46,.15)', borderRadius:12, padding:'14px 16px', marginBottom:16, display:'flex', gap:10, alignItems:'flex-start' }}>
+                          <span style={{ fontSize:16, flexShrink:0 }}>💡</span>
+                          <p style={{ fontSize:13, color:t.txS, lineHeight:1.65 }}>{q.exp}</p>
                         </div>
-                      )}
-
-                      {quizAnswer !== null && (
-                        <button onClick={() => { if(quizIndex < QUESTIONS.length-1){ setQuizIndex(i=>i+1); setQuizAnswer(null) } else { setQuizDone(true) }}} className="btn-primary" style={{ width:'100%', background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:12, padding:'13px 0', fontSize:14, fontWeight:700, fontFamily:'inherit', cursor:'pointer' }}>
-                          {quizIndex < QUESTIONS.length-1 ? 'Question suivante →' : 'Voir mes résultats'}
+                        <button onClick={() => { if(quizIndex < total-1){ setQuizIndex(i=>i+1); setQuizAnswer(null) } else { setQuizDone(true) }}} className="btn-primary" style={{ width:'100%', background:'linear-gradient(135deg,#E76F2E,#F2994A)', color:'#fff', border:'none', borderRadius:12, padding:'13px 0', fontSize:14, fontWeight:700, fontFamily:'inherit', cursor:'pointer' }}>
+                          {quizIndex < total-1 ? `Question suivante (${quizIndex+2}/${total}) →` : '🎯 Voir mes résultats'}
                         </button>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
