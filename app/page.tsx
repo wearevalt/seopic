@@ -845,7 +845,7 @@ function Footer() {
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
-            © 2026 SeoPic · Produit de VALT Agency · Tanger, Maroc
+            © 2026 SeoPic · Produit de WE ARE VALT  · Tanger, Maroc
           </p>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
