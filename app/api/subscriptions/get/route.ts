@@ -1,14 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
-
-// adapte ce chemin selon ton projet
 import { subscriptionService } from "@/lib/services/subscriptionService";
 
-export async function GET(req: NextRequest) {
+export async function GET(req: Request) {
   try {
     const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET,
+      req: req as any,
+      secret: process.env.NEXTAUTH_SECRET,
     });
 
     const email = token?.email;
@@ -27,7 +25,7 @@ export async function GET(req: NextRequest) {
       subscription,
     });
   } catch (error) {
-    console.error("GET /api/subscriptions/get error:", error);
+    console.error("Subscription GET error:", error);
 
     return NextResponse.json(
       { error: "Internal server error" },

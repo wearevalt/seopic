@@ -3,9 +3,10 @@ import { getToken } from 'next-auth/jwt';
 import { analyzeSchema } from '@/lib/schemas';
 import { rateLimit, getClientIp } from '@/lib/rate-limit';
 import { supabaseAdmin } from '@/lib/supabase';
+import { subscriptionService } from '@/lib/subscription-service';
 
 export async function POST(req: NextRequest) {
-  // Rate limit: 10 analyses per minute per IP
+  // Rate limit: 10 analyses per minute per IP (abuse prevention)
   const ip = getClientIp(req);
   const { success, remaining } = rateLimit(`analyze:${ip}`, { limit: 10, windowMs: 60_000 });
   if (!success) {
@@ -13,6 +14,20 @@ export async function POST(req: NextRequest) {
       { error: 'Trop de requêtes. Réessayez dans une minute.' },
       { status: 429, headers: { 'Retry-After': '60' } }
     );
+  }
+
+  // Check subscription and plan limits
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+  const userEmail = token?.email as string | undefined;
+
+  if (userEmail) {
+    const subscriptionCheck = await subscriptionService.canPerformAnalysis(userEmail);
+    if (!subscriptionCheck.allowed) {
+      return NextResponse.json(
+        { error: subscriptionCheck.reason || 'Vous avez atteint votre limite mensuelle d\'analyses.' },
+        { status: 403 }
+      );
+    }
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
