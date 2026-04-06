@@ -5,7 +5,11 @@ import { subscriptionService } from '@/lib/subscription-service';
 import { PLAN_CONFIGS } from '@/lib/types';
 import { z } from 'zod';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+let _stripe: Stripe | null = null;
+function getStripe() {
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  return _stripe;
+}
 
 const checkoutSchema = z.object({
   planType: z.enum(['pro', 'enterprise']),
@@ -31,7 +35,7 @@ export async function POST(req: NextRequest) {
     let customerId = subscription?.stripe_customer_id;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: token.email,
         metadata: {
           app: 'seopic',
@@ -41,7 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],

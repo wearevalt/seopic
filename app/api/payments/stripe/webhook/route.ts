@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { subscriptionService } from '@/lib/subscription-service';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+let _stripe: Stripe | null = null;
+function getStripe() {
+  if (!_stripe) _stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+  return _stripe;
+}
 
 type StripeEvent = Stripe.Event;
 
@@ -17,7 +20,7 @@ export async function POST(req: NextRequest) {
 
   let event: StripeEvent;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(rawBody, signature, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (error) {
     console.error('Webhook signature verification failed:', error);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
@@ -55,7 +58,7 @@ export async function POST(req: NextRequest) {
         const customer = subscription.customer as string;
 
         // Get customer email
-        const customerObj = await stripe.customers.retrieve(customer);
+        const customerObj = await getStripe().customers.retrieve(customer);
         const email = (customerObj as Stripe.Customer).email;
 
         if (email) {
@@ -79,7 +82,7 @@ export async function POST(req: NextRequest) {
         const customer = subscription.customer as string;
 
         // Get customer email
-        const customerObj = await stripe.customers.retrieve(customer);
+        const customerObj = await getStripe().customers.retrieve(customer);
         const email = (customerObj as Stripe.Customer).email;
 
         if (email) {
@@ -100,7 +103,7 @@ export async function POST(req: NextRequest) {
         const customer = invoice.customer as string;
 
         // Get customer email
-        const customerObj = await stripe.customers.retrieve(customer);
+        const customerObj = await getStripe().customers.retrieve(customer);
         const email = (customerObj as Stripe.Customer).email;
 
         if (email) {
