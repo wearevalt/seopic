@@ -1,16 +1,18 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 export const analyzeSchema = z.object({
-  imageBase64: z
-    .string()
-    .min(1, 'Image requise')
-    .max(10 * 1024 * 1024, 'Image trop grande (max 10MB)'),
+  imageBase64: z.string().min(1, 'Image requise'),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/gif', 'image/webp'], {
     message: 'Type de fichier non supporté',
   }),
   imageName: z.string().max(255).optional(),
-  imageSize: z.number().int().positive().optional(),
-});
+  imageSize: z
+    .number()
+    .int()
+    .positive()
+    .max(10 * 1024 * 1024, 'Image trop grande (max 10MB)')
+    .optional(),
+})
 
 export const ticketCreateSchema = z.object({
   title: z
@@ -30,7 +32,7 @@ export const ticketCreateSchema = z.object({
     .max(254, 'Email trop long')
     .trim(),
   priority: z.enum(['Basse', 'Moyenne', 'Haute']).default('Moyenne'),
-});
+})
 
 export const ticketReplySchema = z.object({
   message: z
@@ -39,8 +41,8 @@ export const ticketReplySchema = z.object({
     .max(5000, 'Message trop long (max 5000 caractères)')
     .trim(),
   author: z.string().max(100).trim().optional(),
-});
+})
 
-export type AnalyzeInput = z.infer<typeof analyzeSchema>;
-export type TicketCreateInput = z.infer<typeof ticketCreateSchema>;
-export type TicketReplyInput = z.infer<typeof ticketReplySchema>;
+export type AnalyzeInput = z.infer<typeof analyzeSchema>
+export type TicketCreateInput = z.infer<typeof ticketCreateSchema>
+export type TicketReplyInput = z.infer<typeof ticketReplySchema>
