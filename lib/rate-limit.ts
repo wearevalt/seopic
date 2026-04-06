@@ -37,6 +37,16 @@ export function rateLimit(key: string, config: RateLimitConfig): { success: bool
   return { success: true, remaining: config.limit - entry.count };
 }
 
+// Per-minute rate limiting (abuse prevention)
+export function rateLimitPerMinute(key: string, limit = 10): { success: boolean; remaining: number } {
+  return rateLimit(key, { limit, windowMs: 60_000 });
+}
+
+// Per-hour rate limiting (stricter)
+export function rateLimitPerHour(key: string, limit = 100): { success: boolean; remaining: number } {
+  return rateLimit(key, { limit, windowMs: 3600_000 });
+}
+
 export function getClientIp(req: Request): string {
   const forwarded = req.headers.get('x-forwarded-for');
   if (forwarded) return forwarded.split(',')[0].trim();
