@@ -10,10 +10,13 @@ import {
   Check,
   ChevronRight,
   ChevronUp,
+  Download,
+  FileImage,
   Image as ImageIcon,
   Layers,
   Menu,
   Moon,
+  ScanSearch,
   Search,
   Shield,
   Sparkles,
@@ -63,24 +66,6 @@ const benefits = [
     icon: Wand2,
     title: 'Standardisez votre SEO',
     desc: 'Gardez une qualité homogène sur vos alt text, titres, descriptions et mots-clés.',
-  },
-]
-
-const steps = [
-  {
-    icon: Upload,
-    title: 'Ajoutez vos images',
-    desc: 'Importez votre visuel en quelques secondes.',
-  },
-  {
-    icon: Sparkles,
-    title: 'SeoPic analyse',
-    desc: 'L’IA détecte le contenu et propose des métadonnées SEO en français.',
-  },
-  {
-    icon: BarChart3,
-    title: 'Téléchargez et publiez',
-    desc: 'Récupérez vos données optimisées et accélérez votre mise en ligne.',
   },
 ]
 
@@ -172,16 +157,12 @@ function Navbar() {
     >
       <div className="container max-w-6xl">
         <motion.div
-          animate={{
-            scale: scrolled ? 0.985 : 1,
-            y: 0,
-          }}
+          animate={{ scale: scrolled ? 0.985 : 1 }}
           transition={{ duration: 0.25 }}
           className={cn(
             'mx-auto flex h-16 max-w-5xl items-center justify-between rounded-full border px-3 sm:px-4',
             'bg-background/55 supports-[backdrop-filter]:bg-background/45',
-            'backdrop-blur-2xl',
-            'border-white/10',
+            'backdrop-blur-2xl border-white/10',
             'shadow-[0_10px_40px_rgba(0,0,0,0.18)]',
             scrolled && 'shadow-[0_14px_50px_rgba(0,0,0,0.25)]'
           )}
@@ -200,6 +181,7 @@ function Navbar() {
             {[
               { label: 'Avantages', href: '#benefits' },
               { label: 'Démo', href: '#demo' },
+              { label: 'Comment ça marche', href: '#how-it-works' },
               { label: 'Tarifs', href: '#pricing' },
               { label: 'FAQ', href: '#faq' },
             ].map((item) => (
@@ -225,9 +207,30 @@ function Navbar() {
             )}
 
             {session ? (
-              <Button asChild variant="brand" className="rounded-full px-5">
-                <Link href="/dashboard">Dashboard</Link>
-              </Button>
+              <>
+                <Button asChild variant="brand" className="rounded-full px-5">
+                  <Link href="/dashboard">Dashboard</Link>
+                </Button>
+
+                <Link
+                  href="/dashboard"
+                  className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition hover:scale-105 hover:bg-white/10"
+                  aria-label="Mon compte"
+                >
+                  {session.user?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={session.user.image}
+                      alt="Avatar"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/30 to-orange-400/20 text-sm font-bold text-foreground">
+                      {session.user?.name?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                  )}
+                </Link>
+              </>
             ) : (
               <>
                 <Button asChild variant="ghost" className="rounded-full">
@@ -254,6 +257,33 @@ function Navbar() {
               </button>
             )}
 
+            {session && (
+              <Link
+                href="/dashboard"
+                className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5"
+                aria-label="Mon compte"
+              >
+                {session.user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={session.user.image}
+                    alt="Avatar"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/30 to-orange-400/20 text-sm font-bold text-foreground">
+                    {session.user?.name?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                )}
+              </Link>
+            )}
+
+            {!session && (
+              <Button asChild variant="brand" className="rounded-full px-4">
+                <Link href="/auth/signin">Essayer gratuitement</Link>
+              </Button>
+            )}
+
             <button
               onClick={() => setOpen(!open)}
               className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted-foreground"
@@ -277,6 +307,7 @@ function Navbar() {
                 {[
                   { label: 'Avantages', href: '#benefits' },
                   { label: 'Démo', href: '#demo' },
+                  { label: 'Comment ça marche', href: '#how-it-works' },
                   { label: 'Tarifs', href: '#pricing' },
                   { label: 'FAQ', href: '#faq' },
                 ].map((item) => (
@@ -290,9 +321,15 @@ function Navbar() {
                   </a>
                 ))}
 
-                <Button asChild variant="brand" className="mt-2 w-full rounded-2xl">
-                  <Link href="/auth/signin">Essayer gratuitement</Link>
-                </Button>
+                {session ? (
+                  <Button asChild variant="brand" className="mt-2 w-full rounded-2xl">
+                    <Link href="/dashboard">Aller au dashboard</Link>
+                  </Button>
+                ) : (
+                  <Button asChild variant="brand" className="mt-2 w-full rounded-2xl">
+                    <Link href="/auth/signin">Essayer gratuitement</Link>
+                  </Button>
+                )}
               </div>
             </motion.div>
           )}
@@ -575,8 +612,29 @@ function Benefits() {
 }
 
 function HowItWorks() {
+  const flowSteps = [
+    {
+      icon: FileImage,
+      title: 'Ajoutez votre image',
+      desc: 'Glissez-déposez votre visuel ou importez-le en quelques secondes.',
+      chip: 'Étape 01',
+    },
+    {
+      icon: ScanSearch,
+      title: 'SeoPic scanne',
+      desc: 'L’IA détecte le contenu, génère vos métadonnées et évalue le potentiel SEO.',
+      chip: 'Étape 02',
+    },
+    {
+      icon: Download,
+      title: 'Téléchargez',
+      desc: 'Récupérez vos résultats optimisés et accélérez votre mise en ligne.',
+      chip: 'Étape 03',
+    },
+  ]
+
   return (
-    <section className="py-24">
+    <section id="how-it-works" className="py-24">
       <div className="container max-w-6xl">
         <motion.div
           variants={stagger}
@@ -590,38 +648,146 @@ function HowItWorks() {
               Comment ça marche
             </Badge>
           </motion.div>
-          <motion.h2 variants={fadeUp} custom={1} className="text-4xl font-black tracking-tight sm:text-5xl">
-            Trois étapes,
-            <span className="gradient-brand"> zéro friction</span>
+          <motion.h2
+            variants={fadeUp}
+            custom={1}
+            className="text-4xl font-black tracking-tight sm:text-5xl"
+          >
+            Un flow simple,
+            <span className="gradient-brand"> ultra visuel</span>
           </motion.h2>
+          <motion.p
+            variants={fadeUp}
+            custom={2}
+            className="mx-auto mt-4 max-w-2xl text-muted-foreground"
+          >
+            Trois étapes claires pour transformer vos visuels en assets mieux préparés pour le SEO.
+          </motion.p>
         </motion.div>
 
-        <motion.div
-          variants={stagger}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: '-60px' }}
-          className="grid gap-5 md:grid-cols-3"
-        >
-          {steps.map((step, i) => (
-            <motion.div key={step.title} variants={fadeUp} custom={i} whileHover={{ y: -5 }} transition={{ duration: 0.2 }}>
-              <Card className="h-full border-border/60 bg-card/60 transition hover:border-brand/30 hover:shadow-lg">
-                <CardContent className="p-7">
-                  <div className="mb-5 flex items-center justify-between">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/12">
-                      <step.icon className="h-5 w-5 text-brand" />
+        <div className="relative">
+          <div className="pointer-events-none absolute left-1/2 top-24 hidden h-[2px] w-[72%] -translate-x-1/2 bg-gradient-to-r from-transparent via-brand/40 to-transparent lg:block" />
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {flowSteps.map((step, i) => (
+              <motion.div
+                key={step.title}
+                variants={fadeUp}
+                initial="hidden"
+                whileInView="visible"
+                viewport={{ once: true, margin: '-80px' }}
+                custom={i}
+                whileHover={{ y: -8, scale: 1.015 }}
+                transition={{ duration: 0.25 }}
+                className="relative"
+              >
+                <Card className="relative h-full overflow-hidden rounded-[28px] border border-white/10 bg-card/60 shadow-[0_20px_50px_rgba(0,0,0,0.14)] backdrop-blur-xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-brand/[0.03]" />
+
+                  <CardContent className="relative p-7">
+                    <div className="mb-5 flex items-center justify-between">
+                      <Badge variant="outline" className="rounded-full px-3 py-1 text-[11px]">
+                        {step.chip}
+                      </Badge>
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        0{i + 1}
+                      </div>
                     </div>
-                    <span className="text-sm font-semibold text-muted-foreground">
-                      0{i + 1}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-bold">{step.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-muted-foreground">{step.desc}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
+
+                    <motion.div
+                      animate={{ y: [0, -6, 0] }}
+                      transition={{
+                        duration: 3.5 + i,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                      className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] border border-white/10 bg-gradient-to-br from-brand/20 via-brand/10 to-transparent shadow-[0_0_30px_hsl(22_82%_55%/0.15)]"
+                    >
+                      <step.icon className="h-9 w-9 text-brand" />
+                    </motion.div>
+
+                    <h3 className="text-xl font-bold tracking-tight">{step.title}</h3>
+                    <p className="mt-3 text-sm leading-7 text-muted-foreground">{step.desc}</p>
+
+                    <div className="mt-8 rounded-2xl border border-white/10 bg-background/40 p-4 backdrop-blur-md">
+                      {i === 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-3 rounded-xl border border-dashed border-border/80 px-4 py-3">
+                            <Upload className="h-5 w-5 text-brand" />
+                            <span className="text-sm text-muted-foreground">Déposez votre image ici</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-secondary">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              whileInView={{ width: '68%' }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1 }}
+                              className="h-full rounded-full bg-brand"
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {i === 1 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-muted-foreground">Analyse IA</span>
+                            <span className="font-semibold text-brand">En cours</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-secondary">
+                            <motion.div
+                              initial={{ width: 0 }}
+                              whileInView={{ width: '84%' }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 1.2 }}
+                              className="h-full rounded-full bg-brand"
+                            />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {['Alt', 'Title', 'Keywords'].map((item) => (
+                              <div
+                                key={item}
+                                className="rounded-xl border border-white/10 bg-background/60 px-3 py-2 text-center text-xs text-muted-foreground"
+                              >
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {i === 2 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/60 px-4 py-3">
+                            <span className="text-sm text-muted-foreground">Export prêt</span>
+                            <Download className="h-4 w-4 text-brand" />
+                          </div>
+                          <Button variant="outline" className="w-full rounded-xl">
+                            Télécharger les données
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {i < flowSteps.length - 1 && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.25 + i * 0.15 }}
+                    className="absolute -right-4 top-1/2 z-10 hidden -translate-y-1/2 lg:flex"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-background/70 shadow-lg backdrop-blur-xl">
+                      <ArrowRight className="h-4 w-4 text-brand" />
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   )
@@ -845,7 +1011,7 @@ function Footer() {
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
-            © 2026 SeoPic · Produit de WE ARE VALT  · Tanger, Maroc
+            © 2026 SeoPic · Produit de VALT Agency · Tanger, Maroc
           </p>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
