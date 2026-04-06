@@ -1,19 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
-import { subscriptionService } from '@/lib/subscription-service';
+import { NextResponse } from "next/server";
+import { getToken } from "next-auth/jwt";
+import { subscriptionService } from "@/lib/services/subscriptionService";
 
-export async function GET(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const userEmail = token?.email as string | undefined;
-
-  if (!userEmail) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
-  }
-
+export async function GET(req: Request) {
   try {
-    const subscription = await subscriptionService.getUserSubscription(userEmail);
-    return NextResponse.json(subscription);
-  } catch {
-    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 });
+    const token = await getToken({
+      req: req as any,
+      secret: process.env.NEXTAUTH_SECRET,
+    });
+
+    const email = token?.email;
+
+    if (!email || typeof email !== "string") {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const subscription = await subscriptionService.getUserSubscription(email);
+
+    return NextResponse.json({
+      success: true,
+      subscription,
+    });
+  } catch (error) {
+    console.error("Subscription GET error:", error);
+
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
