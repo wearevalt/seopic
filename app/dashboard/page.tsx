@@ -4,6 +4,8 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { PLAN_CONFIGS } from '@/lib/types'
+import type { UserSubscription } from '@/lib/types'
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',')
 
@@ -123,6 +125,10 @@ export default function Dashboard() {
   /* Keywords editing */
   const [kwInput, setKwInput] = useState('')
 
+  /* Subscription */
+  const [subscription, setSubscription] = useState<UserSubscription | null>(null)
+  const [analysesRemaining, setAnalysesRemaining] = useState(0)
+
   /* Quiz */
   const [quizIndex, setQuizIndex]     = useState(0)
   const [quizAnswer, setQuizAnswer]   = useState<number | null>(null)
@@ -165,6 +171,24 @@ export default function Dashboard() {
     const t3 = setTimeout(() => setScanProgress(88), 2500)
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
   }, [loading])
+
+  /* Fetch subscription data */
+  useEffect(() => {
+    if (!session?.user?.email) return
+    const fetchSubscription = async () => {
+      try {
+        const res = await fetch('/api/subscriptions/get')
+        if (res.ok) {
+          const data = await res.json() as UserSubscription
+          setSubscription(data)
+          setAnalysesRemaining(Math.max(0, data.analyses_per_month - data.analyses_used))
+        }
+      } catch (err) {
+        console.error('Failed to fetch subscription:', err)
+      }
+    }
+    fetchSubscription()
+  }, [session?.user?.email])
 
   const fetchTickets = useCallback(async () => {
     if (!session?.user?.email) return
@@ -406,16 +430,16 @@ export default function Dashboard() {
         </div>
 
         {/* Plan card */}
-        {sidebarOpen && (
+        {sidebarOpen && subscription && (
           <div style={{ margin:'12px 12px 4px', background:'linear-gradient(135deg,rgba(231,111,46,.12),rgba(231,111,46,.04))', border:'1px solid rgba(231,111,46,.2)', borderRadius:12, padding:'12px 14px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-              <span style={{ fontSize:10, fontWeight:700, color:'#E76F2E', textTransform:'uppercase', letterSpacing:1 }}>Découverte</span>
-              <span style={{ fontSize:10, color:t.txM }}>5 restants</span>
+              <span style={{ fontSize:10, fontWeight:700, color:'#E76F2E', textTransform:'uppercase', letterSpacing:1 }}>{PLAN_CONFIGS[subscription.plan_type].name}</span>
+              <span style={{ fontSize:10, color:t.txM }}>{analysesRemaining} restants</span>
             </div>
             <div style={{ background:t.bd, borderRadius:4, height:4, overflow:'hidden' }}>
-              <div style={{ width:'100%', height:'100%', background:'linear-gradient(90deg,#E76F2E,#F2994A)', borderRadius:4 }}/>
+              <div style={{ width: `${subscription.analyses_per_month > 0 ? ((subscription.analyses_per_month - subscription.analyses_used) / subscription.analyses_per_month * 100) : 0}%`, height:'100%', background:'linear-gradient(90deg,#E76F2E,#F2994A)', borderRadius:4 }}/>
             </div>
-            <p style={{ fontSize:10, color:t.txM, marginTop:6 }}>5 / 5 analyses utilisées</p>
+            <p style={{ fontSize:10, color:t.txM, marginTop:6 }}>{subscription.analyses_used} / {subscription.analyses_per_month} analyses utilisées</p>
           </div>
         )}
 
