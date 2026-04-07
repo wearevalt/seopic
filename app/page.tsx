@@ -1088,7 +1088,6 @@ export default function Home() {
       <Navbar />
       <main>
         <Hero />
-        <TrustBar />
         <Separator />
         <Modules />
         <Separator />
