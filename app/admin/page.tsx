@@ -7,9 +7,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
-  BadgeCheck,
   Bell,
   Building2,
+  ChevronRight,
   Crown,
   LayoutDashboard,
   LifeBuoy,
@@ -173,9 +173,6 @@ export default function AdminPage() {
 
       setReplyText('')
       await fetchTickets()
-
-      const refreshed = tickets.find((t) => t.id === selectedTicket.id)
-      if (refreshed) setSelectedTicket(refreshed)
     } catch {
       setReplyError('Connexion impossible.')
     } finally {
@@ -560,31 +557,11 @@ export default function AdminPage() {
               <motion.div initial="hidden" animate="visible" variants={fadeUp} className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                   {[
-                    {
-                      label: 'Tickets ouverts',
-                      value: stats.openTickets,
-                      icon: Ticket,
-                    },
-                    {
-                      label: 'Clients actifs',
-                      value: stats.clients,
-                      icon: Users,
-                    },
-                    {
-                      label: 'Total tickets',
-                      value: stats.totalTickets,
-                      icon: LayoutDashboard,
-                    },
-                    {
-                      label: 'Sans réponse',
-                      value: stats.noReply,
-                      icon: Bell,
-                    },
-                    {
-                      label: 'Messages',
-                      value: stats.messages,
-                      icon: MessageSquare,
-                    },
+                    { label: 'Tickets ouverts', value: stats.openTickets, icon: Ticket },
+                    { label: 'Clients actifs', value: stats.clients, icon: Users },
+                    { label: 'Total tickets', value: stats.totalTickets, icon: LayoutDashboard },
+                    { label: 'Sans réponse', value: stats.noReply, icon: Bell },
+                    { label: 'Messages', value: stats.messages, icon: MessageSquare },
                   ].map((item, i) => {
                     const Icon = item.icon
                     return (
