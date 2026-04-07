@@ -4,24 +4,29 @@ import { useSession, signOut } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft,
   BarChart3,
+  CheckCircle2,
   ChevronRight,
+  Download,
   FileImage,
   History,
   Home,
+  Image as ImageIcon,
   LayoutDashboard,
   LogOut,
   Menu,
   RefreshCcw,
+  Search,
   Settings,
   Shield,
   Sparkles,
   Ticket,
   Upload,
   UserCircle2,
+  Wand2,
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -77,9 +82,9 @@ const navItems: {
 }[] = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'image-agent', label: 'Image Agent', icon: FileImage },
-  { id: 'history', label: 'History', icon: History },
+  { id: 'history', label: 'Historique', icon: History },
   { id: 'tickets', label: 'Tickets', icon: Ticket },
-  { id: 'settings', label: 'Settings', icon: Settings },
+  { id: 'settings', label: 'Paramètres', icon: Settings },
 ]
 
 function getInitials(name?: string | null) {
@@ -126,6 +131,95 @@ function priorityTone(priority?: string) {
   return 'border-yellow-500/20 text-yellow-400'
 }
 
+function CircularScore({ score }: { score: number }) {
+  const radius = 48
+  const circumference = 2 * Math.PI * radius
+  const progress = circumference - (score / 100) * circumference
+  const tone = scoreTone(score)
+
+  return (
+    <div className="relative flex h-36 w-36 items-center justify-center">
+      <svg className="h-36 w-36 -rotate-90" viewBox="0 0 120 120">
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          stroke="currentColor"
+          strokeWidth="8"
+          fill="transparent"
+          className="text-white/10"
+        />
+        <circle
+          cx="60"
+          cy="60"
+          r={radius}
+          stroke="currentColor"
+          strokeWidth="8"
+          fill="transparent"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={progress}
+          className={cn(
+            tone.bar === 'bg-emerald-400' && 'text-emerald-400',
+            tone.bar === 'bg-yellow-400' && 'text-yellow-400',
+            tone.bar === 'bg-red-400' && 'text-red-400'
+          )}
+        />
+      </svg>
+
+      <div className="absolute text-center">
+        <div className="text-4xl font-black tracking-tight">{score}</div>
+        <div className="mt-1 text-xs text-muted-foreground">/100</div>
+      </div>
+    </div>
+  )
+}
+
+function GooglePreview({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
+  return (
+    <div className="rounded-[24px] border border-white/10 bg-white p-5 text-black shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
+      <p className="text-xs text-green-700">seopic.io › votre-page</p>
+      <h3 className="mt-1 text-[28px] leading-tight text-[#1a0dab]">
+        {title || 'Titre SEO'}
+      </h3>
+      <p className="mt-2 text-[15px] leading-7 text-[#4d5156]">
+        {description || 'Votre meta description apparaîtra ici.'}
+      </p>
+    </div>
+  )
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+}: {
+  label: string
+  value: string
+  sub: string
+  icon: React.ComponentType<{ className?: string }>
+}) {
+  return (
+    <Card className="rounded-[28px] border-white/10 bg-card/60 backdrop-blur-xl">
+      <CardContent className="p-6">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/12">
+          <Icon className="h-5 w-5 text-brand" />
+        </div>
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <p className="mt-2 text-4xl font-black tracking-tight">{value}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{sub}</p>
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
@@ -151,6 +245,7 @@ export default function DashboardPage() {
   const [outputQuality, setOutputQuality] = useState(85)
   const [injectLoading, setInjectLoading] = useState(false)
   const [injectError, setInjectError] = useState<string | null>(null)
+  const [injectSuccess, setInjectSuccess] = useState(false)
 
   const [history, setHistory] = useState<AnalysisHistory[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -212,6 +307,12 @@ export default function DashboardPage() {
   const latestScore = history[0]?.seo_score ?? imageResult?.seoScore ?? 0
   const latestHistory = history.slice(0, 3)
 
+  const estimatedWebpSize = useMemo(() => {
+    if (!imageFile?.size) return null
+    const ratio = outputFormat === 'webp' ? 0.78 : outputFormat === 'jpg' ? 0.88 : 1
+    return Math.round(imageFile.size * ratio)
+  }, [imageFile, outputFormat])
+
   const handleImageFile = (file: File) => {
     if (!file.type.startsWith('image/')) {
       setImageError('Utilise un fichier image valide.')
@@ -225,6 +326,7 @@ export default function DashboardPage() {
 
     setImageError(null)
     setInjectError(null)
+    setInjectSuccess(false)
     setImageResult(null)
     setImageFile(file)
 
@@ -239,6 +341,7 @@ export default function DashboardPage() {
     try {
       setImageLoading(true)
       setImageError(null)
+      setInjectSuccess(false)
 
       const base64 = imagePreview.split(',')[1]
 
@@ -274,7 +377,6 @@ export default function DashboardPage() {
       setSeoDescription(data?.metaDescription || '')
       setSeoKeywords(Array.isArray(data?.keywords) ? data.keywords : [])
 
-      setSection('image-agent')
       fetchHistory()
     } catch {
       setImageError('Analyse impossible. Vérifie ta connexion.')
@@ -304,6 +406,7 @@ export default function DashboardPage() {
     setImageResult(null)
     setImageError(null)
     setInjectError(null)
+    setInjectSuccess(false)
     setSeoFilename('')
     setSeoTitle('')
     setSeoAltText('')
@@ -320,6 +423,7 @@ export default function DashboardPage() {
     try {
       setInjectLoading(true)
       setInjectError(null)
+      setInjectSuccess(false)
 
       const imageBase64 = imagePreview.split(',')[1]
 
@@ -360,6 +464,8 @@ export default function DashboardPage() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
+
+      setInjectSuccess(true)
     } catch {
       setInjectError('Erreur pendant le téléchargement.')
     } finally {
@@ -422,14 +528,14 @@ export default function DashboardPage() {
   const desktopSidebar = (
     <aside
       className={cn(
-        'hidden border-r border-white/10 bg-background/40 backdrop-blur-2xl lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0',
+        'hidden border-r border-white/10 bg-background/45 backdrop-blur-2xl lg:flex lg:h-screen lg:flex-col lg:sticky lg:top-0',
         sidebarCollapsed ? 'lg:w-[88px]' : 'lg:w-[280px]'
       )}
     >
       <div className="flex h-20 items-center justify-between border-b border-white/10 px-4">
         {!sidebarCollapsed && (
           <Link href="/" className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand shadow-[0_0_30px_hsl(22_82%_55%/0.35)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand shadow-[0_0_35px_hsl(22_82%_55%/0.35)]">
               <Sparkles className="h-4 w-4 text-white" />
             </div>
             <div>
@@ -450,20 +556,20 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
-        <div className="mb-5 rounded-2xl border border-brand/20 bg-brand/10 p-4">
+        <div className="mb-6 rounded-[28px] border border-brand/20 bg-gradient-to-br from-brand/12 to-orange-500/5 p-5">
           {!sidebarCollapsed ? (
             <>
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand">
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-brand">
                   Plan
                 </span>
                 <Badge variant="outline" className="border-brand/20 text-brand">
                   Découverte
                 </Badge>
               </div>
-              <p className="text-sm font-semibold">Espace client réel</p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                Image Agent, historique, tickets et réglages.
+              <p className="text-base font-bold">Pilotage SEO visuel</p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Analyse, édition, injection et export depuis une seule interface.
               </p>
             </>
           ) : (
@@ -473,7 +579,7 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {navItems.map((item) => {
             const Icon = item.icon
             const active = section === item.id
@@ -484,7 +590,7 @@ export default function DashboardPage() {
                 className={cn(
                   'flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left transition',
                   active
-                    ? 'border border-brand/20 bg-brand/12 text-brand'
+                    ? 'border border-brand/20 bg-brand/12 text-brand shadow-[0_10px_30px_rgba(231,111,46,0.08)]'
                     : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
                 )}
               >
@@ -541,16 +647,17 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/2 top-0 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-brand/10 blur-[120px]" />
-        <div className="absolute right-0 top-24 h-[260px] w-[260px] rounded-full bg-orange-400/10 blur-[110px]" />
+        <div className="absolute left-1/2 top-0 h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-brand/10 blur-[140px]" />
+        <div className="absolute right-0 top-20 h-[300px] w-[300px] rounded-full bg-orange-400/10 blur-[120px]" />
+        <div className="absolute left-0 bottom-0 h-[220px] w-[220px] rounded-full bg-yellow-400/5 blur-[100px]" />
       </div>
 
       <div className="relative flex min-h-screen">
         {desktopSidebar}
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b border-white/10 bg-background/55 backdrop-blur-2xl">
-            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <header className="sticky top-0 z-40 border-b border-white/10 bg-background/50 backdrop-blur-2xl">
+            <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-5 sm:px-6 lg:px-8">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setMobileMenuOpen(true)}
@@ -560,15 +667,15 @@ export default function DashboardPage() {
                 </button>
 
                 <div>
-                  <h1 className="text-xl font-black tracking-tight sm:text-2xl">
+                  <h1 className="text-3xl font-black tracking-tight">
                     {section === 'overview' && 'Overview'}
                     {section === 'image-agent' && 'Image Agent'}
-                    {section === 'history' && 'History'}
+                    {section === 'history' && 'Historique'}
                     {section === 'tickets' && 'Tickets'}
-                    {section === 'settings' && 'Settings'}
+                    {section === 'settings' && 'Paramètres'}
                   </h1>
-                  <p className="text-sm text-muted-foreground">
-                    Dashboard client réel. Seulement les sections branchées.
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Interface premium pour piloter votre SEO visuel.
                   </p>
                 </div>
               </div>
@@ -613,7 +720,7 @@ export default function DashboardPage() {
                   animate={{ x: 0 }}
                   exit={{ x: -320 }}
                   transition={{ duration: 0.25 }}
-                  className="fixed left-0 top-0 z-50 h-screen w-[290px] border-r border-white/10 bg-background/90 p-4 backdrop-blur-2xl lg:hidden"
+                  className="fixed left-0 top-0 z-50 h-screen w-[290px] border-r border-white/10 bg-background/95 p-4 backdrop-blur-2xl lg:hidden"
                 >
                   <div className="mb-5 flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-3">
@@ -636,7 +743,7 @@ export default function DashboardPage() {
                     </button>
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1.5">
                     {navItems.map((item) => {
                       const Icon = item.icon
                       const active = section === item.id
@@ -685,77 +792,63 @@ export default function DashboardPage() {
             {section === 'overview' && (
               <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {[
-                    {
-                      label: 'Dernier score SEO',
-                      value: latestScore ? String(latestScore) : '—',
-                      sub: latestScore ? scoreTone(latestScore).label : 'Aucune analyse',
-                      icon: BarChart3,
-                    },
-                    {
-                      label: 'Analyses enregistrées',
-                      value: String(history.length),
-                      sub: 'Historique disponible',
-                      icon: History,
-                    },
-                    {
-                      label: 'Tickets ouverts',
-                      value: String(openTicketsCount),
-                      sub: 'Support client',
-                      icon: Ticket,
-                    },
-                    {
-                      label: 'Image Agent',
-                      value: imageResult ? 'Actif' : 'Prêt',
-                      sub: imageResult ? 'Dernière analyse en mémoire' : 'Aucune image chargée',
-                      icon: FileImage,
-                    },
-                  ].map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <Card key={item.label} className="rounded-[28px] border-white/10 bg-card/60 backdrop-blur-xl">
-                        <CardContent className="p-6">
-                          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/12">
-                            <Icon className="h-5 w-5 text-brand" />
-                          </div>
-                          <p className="text-sm text-muted-foreground">{item.label}</p>
-                          <p className="mt-2 text-4xl font-black tracking-tight">{item.value}</p>
-                          <p className="mt-2 text-sm text-muted-foreground">{item.sub}</p>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
+                  <StatCard
+                    label="Dernier score SEO"
+                    value={latestScore ? String(latestScore) : '—'}
+                    sub={latestScore ? scoreTone(latestScore).label : 'Aucune analyse'}
+                    icon={BarChart3}
+                  />
+                  <StatCard
+                    label="Analyses enregistrées"
+                    value={String(history.length)}
+                    sub="Historique disponible"
+                    icon={History}
+                  />
+                  <StatCard
+                    label="Tickets ouverts"
+                    value={String(openTicketsCount)}
+                    sub="Support client"
+                    icon={Ticket}
+                  />
+                  <StatCard
+                    label="Image Agent"
+                    value={imageResult ? 'Actif' : 'Prêt'}
+                    sub={imageResult ? 'Données disponibles' : 'Aucune image analysée'}
+                    icon={FileImage}
+                  />
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
                   <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                     <CardHeader>
                       <CardTitle>Accès rapide</CardTitle>
-                      <CardDescription>Les sections qui fonctionnent vraiment.</CardDescription>
+                      <CardDescription>
+                        Accédez aux actions clés de votre espace.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-4 sm:grid-cols-2">
                       {[
                         {
                           title: 'Image Agent',
-                          desc: 'Uploader une image, analyser, éditer, injecter et télécharger.',
+                          desc: 'Analyser, éditer et exporter vos images SEO.',
                           section: 'image-agent' as Section,
                           icon: FileImage,
                         },
                         {
-                          title: 'History',
-                          desc: 'Consulter les dernières analyses enregistrées.',
+                          title: 'Historique',
+                          desc: 'Retrouver vos analyses enregistrées.',
                           section: 'history' as Section,
                           icon: History,
                         },
                         {
                           title: 'Tickets',
-                          desc: 'Créer un ticket et suivre les demandes support.',
+                          desc: 'Contacter le support et suivre vos demandes.',
                           section: 'tickets' as Section,
                           icon: Ticket,
                         },
                         {
-                          title: 'Settings',
-                          desc: 'Compte, navigation et accès admin si autorisé.',
+                          title: 'Paramètres',
+                          desc: 'Gérer votre compte et votre navigation.',
                           section: 'settings' as Section,
                           icon: Settings,
                         },
@@ -781,7 +874,9 @@ export default function DashboardPage() {
                   <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                     <CardHeader>
                       <CardTitle>Dernières analyses</CardTitle>
-                      <CardDescription>Lecture rapide.</CardDescription>
+                      <CardDescription>
+                        Les derniers résultats enregistrés dans votre espace.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {latestHistory.length === 0 ? (
@@ -792,7 +887,7 @@ export default function DashboardPage() {
                             </div>
                             <p className="text-lg font-bold">Aucune analyse</p>
                             <p className="mt-2 text-sm text-muted-foreground">
-                              Lance une analyse image pour commencer.
+                              Lancez votre première analyse depuis Image Agent.
                             </p>
                           </div>
                         </div>
@@ -838,104 +933,181 @@ export default function DashboardPage() {
             )}
 
             {section === 'image-agent' && (
-              <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
-                <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
-                  <CardHeader>
-                    <CardTitle>Image Agent</CardTitle>
-                    <CardDescription>
-                      Upload, analyse, édition, injection et téléchargement.
-                    </CardDescription>
-                  </CardHeader>
+              <div className="grid gap-6 xl:grid-cols-[1.05fr_1fr]">
+                <div className="grid gap-6">
+                  <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
+                    <CardHeader>
+                      <CardTitle>Image originale</CardTitle>
+                      <CardDescription>
+                        Chargez un visuel, analysez-le et préparez son export SEO.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                      {!imagePreview ? (
+                        <button
+                          onClick={() => fileInputRef.current?.click()}
+                          className="group flex min-h-[360px] w-full flex-col items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-background/40 p-8 text-center transition hover:border-brand/30 hover:bg-brand/5"
+                        >
+                          <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-[24px] bg-brand/12">
+                            <Upload className="h-8 w-8 text-brand" />
+                          </div>
+                          <h3 className="text-2xl font-bold">Ajouter une image</h3>
+                          <p className="mt-3 max-w-sm text-sm leading-7 text-muted-foreground">
+                            JPG, PNG, WEBP ou GIF. Maximum 10MB.
+                          </p>
+                        </button>
+                      ) : (
+                        <>
+                          <div className="overflow-hidden rounded-[28px] border border-white/10 bg-background/40">
+                            <img
+                              src={imagePreview}
+                              alt="Preview"
+                              className="h-[360px] w-full object-contain bg-black/20"
+                            />
+                          </div>
 
-                  <CardContent className="space-y-4">
-                    {!imagePreview ? (
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className="group flex min-h-[320px] w-full flex-col items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-background/40 p-8 text-center transition hover:border-brand/30 hover:bg-brand/5"
-                      >
-                        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] bg-brand/12">
-                          <Upload className="h-7 w-7 text-brand" />
+                          <div className="rounded-[24px] border border-white/10 bg-background/45 p-5">
+                            <div className="flex flex-wrap items-center gap-4">
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Original</p>
+                                <p className="mt-1 text-3xl font-black tracking-tight">
+                                  {formatBytes(imageFile?.size)}
+                                </p>
+                              </div>
+
+                              <div className="text-2xl text-muted-foreground">→</div>
+
+                              <div>
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                                  {outputFormat.toUpperCase()}
+                                </p>
+                                <p className="mt-1 text-3xl font-black tracking-tight text-emerald-400">
+                                  {estimatedWebpSize ? formatBytes(estimatedWebpSize) : '—'}
+                                </p>
+                              </div>
+
+                              {imageFile?.size && estimatedWebpSize ? (
+                                <div className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-sm font-semibold text-emerald-400">
+                                  -{Math.max(1, Math.round((1 - estimatedWebpSize / imageFile.size) * 100))}%
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          <div className="grid gap-3 sm:grid-cols-3">
+                            <Button
+                              onClick={analyzeImage}
+                              disabled={imageLoading}
+                              className="rounded-full"
+                              variant="brand"
+                            >
+                              <Wand2 className="mr-2 h-4 w-4" />
+                              {imageLoading ? 'Analyse…' : 'Analyser'}
+                            </Button>
+
+                            <Button
+                              onClick={injectAndDownload}
+                              disabled={injectLoading || !seoFilename || !seoTitle}
+                              className="rounded-full"
+                              variant="outline"
+                            >
+                              <Download className="mr-2 h-4 w-4" />
+                              {injectLoading ? 'Injection…' : 'Injecter & Télécharger'}
+                            </Button>
+
+                            <Button
+                              onClick={resetImageAgent}
+                              variant="outline"
+                              className="rounded-full"
+                            >
+                              Réinitialiser
+                            </Button>
+                          </div>
+                        </>
+                      )}
+
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) handleImageFile(file)
+                        }}
+                      />
+
+                      {imageError && (
+                        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                          {imageError}
                         </div>
-                        <h3 className="text-lg font-bold">Ajouter une image</h3>
-                        <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                          JPG, PNG, WEBP ou GIF. Maximum 10MB.
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  <div className="grid gap-6 md:grid-cols-[260px_1fr]">
+                    <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
+                      <CardHeader>
+                        <CardTitle>Score SEO</CardTitle>
+                      </CardHeader>
+                      <CardContent className="flex flex-col items-center justify-center">
+                        <CircularScore score={imageResult?.seoScore || 0} />
+                        <p className={cn('mt-4 text-sm font-semibold', imageResult ? scoreTone(imageResult.seoScore).cls : 'text-muted-foreground')}>
+                          {imageResult ? scoreTone(imageResult.seoScore).label : 'En attente'}
                         </p>
-                      </button>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="overflow-hidden rounded-[28px] border border-white/10 bg-background/40">
-                          <img
-                            src={imagePreview}
-                            alt="Preview"
-                            className="h-[320px] w-full object-cover"
-                          />
+                      </CardContent>
+                    </Card>
+
+                    <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
+                      <CardHeader>
+                        <CardTitle>Contenu détecté</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="rounded-[24px] border border-white/10 bg-background/45 p-5 text-sm leading-8 text-muted-foreground">
+                          {imageResult?.detectedContent || 'Aucune détection pour le moment.'}
                         </div>
+                      </CardContent>
+                    </Card>
+                  </div>
 
-                        <div className="grid gap-3 sm:grid-cols-3">
-                          <Button
-                            onClick={analyzeImage}
-                            disabled={imageLoading}
-                            className="rounded-full"
-                            variant="brand"
-                          >
-                            {imageLoading ? 'Analyse…' : 'Analyser'}
-                          </Button>
-
-                          <Button
-                            onClick={injectAndDownload}
-                            disabled={injectLoading || !seoFilename || !seoTitle}
-                            className="rounded-full"
-                            variant="outline"
-                          >
-                            {injectLoading ? 'Injection…' : 'Injecter & Télécharger'}
-                          </Button>
-
-                          <Button
-                            onClick={resetImageAgent}
-                            variant="outline"
-                            className="rounded-full"
-                          >
-                            Réinitialiser
-                          </Button>
+                  <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
+                    <CardHeader>
+                      <CardTitle>Recommandations</CardTitle>
+                      <CardDescription>
+                        Actions suggérées pour améliorer la performance SEO du visuel.
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {(imageResult?.improvements?.length
+                        ? imageResult.improvements
+                        : [
+                            'Ajoutez une analyse IA pour générer des recommandations précises.',
+                            'Personnalisez le texte alternatif avec les mots-clés de votre page de destination.',
+                            'Vérifiez que le nom du fichier reflète bien l’intention de recherche principale.',
+                          ]
+                      ).map((item, idx) => (
+                        <div
+                          key={idx}
+                          className="flex gap-3 rounded-2xl border border-white/10 bg-background/45 px-4 py-4"
+                        >
+                          <Sparkles className="mt-1 h-4 w-4 shrink-0 text-brand" />
+                          <p className="text-sm leading-7 text-muted-foreground">{item}</p>
                         </div>
-                      </div>
-                    )}
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleImageFile(file)
-                      }}
-                    />
-
-                    {imageError && (
-                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                        {imageError}
-                      </div>
-                    )}
-
-                    {injectError && (
-                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-                        {injectError}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
+                      ))}
+                    </CardContent>
+                  </Card>
+                </div>
 
                 <div className="grid gap-6">
                   <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                     <CardHeader>
-                      <CardTitle>SEO fields</CardTitle>
+                      <CardTitle>Éditeur de métadonnées SEO</CardTitle>
                       <CardDescription>
-                        Champs générés par l’agent, modifiables avant injection.
+                        Modifiez vos champs avant injection dans le fichier final.
                       </CardDescription>
                     </CardHeader>
 
-                    <CardContent className="grid gap-4">
+                    <CardContent className="grid gap-5">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Filename</label>
@@ -948,38 +1120,47 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Title</label>
+                          <label className="text-sm font-medium">Meta Title</label>
                           <input
                             value={seoTitle}
                             onChange={(e) => setSeoTitle(e.target.value)}
                             placeholder="Titre SEO"
                             className="h-12 w-full rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
                           />
+                          <p className={cn('text-right text-xs', seoTitle.length > 60 ? 'text-red-400' : 'text-muted-foreground')}>
+                            {seoTitle.length}/60
+                          </p>
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Alt text</label>
-                        <input
+                        <label className="text-sm font-medium">Texte alternatif (Alt Text)</label>
+                        <textarea
                           value={seoAltText}
                           onChange={(e) => setSeoAltText(e.target.value)}
                           placeholder="Alt text"
-                          className="h-12 w-full rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
+                          className="min-h-[110px] w-full rounded-2xl border border-white/10 bg-background/60 px-4 py-3 text-sm outline-none transition focus:border-brand/30"
                         />
+                        <p className={cn('text-right text-xs', seoAltText.length > 125 ? 'text-red-400' : 'text-muted-foreground')}>
+                          {seoAltText.length}/125
+                        </p>
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Description</label>
+                        <label className="text-sm font-medium">Meta Description</label>
                         <textarea
                           value={seoDescription}
                           onChange={(e) => setSeoDescription(e.target.value)}
                           placeholder="Meta description"
-                          className="min-h-[120px] w-full rounded-2xl border border-white/10 bg-background/60 px-4 py-3 text-sm outline-none transition focus:border-brand/30"
+                          className="min-h-[130px] w-full rounded-2xl border border-white/10 bg-background/60 px-4 py-3 text-sm outline-none transition focus:border-brand/30"
                         />
+                        <p className={cn('text-right text-xs', seoDescription.length > 160 ? 'text-red-400' : 'text-muted-foreground')}>
+                          {seoDescription.length}/160
+                        </p>
                       </div>
 
                       <div className="space-y-3">
-                        <label className="text-sm font-medium">Keywords</label>
+                        <label className="text-sm font-medium">Mots-clés SEO</label>
 
                         <div className="flex flex-col gap-3 sm:flex-row">
                           <input
@@ -1004,25 +1185,30 @@ export default function DashboardPage() {
                             <button
                               key={keyword}
                               onClick={() => removeKeyword(keyword)}
-                              className="rounded-full border border-border bg-secondary px-3 py-1 text-xs text-muted-foreground transition hover:border-red-500/30 hover:text-red-300"
+                              className="rounded-full border border-brand/20 bg-brand/10 px-3 py-1 text-xs text-brand transition hover:border-red-500/30 hover:text-red-300"
                             >
                               {keyword} ×
                             </button>
                           ))}
                         </div>
                       </div>
+
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium">Aperçu Google</label>
+                        <GooglePreview title={seoTitle} description={seoDescription} />
+                      </div>
                     </CardContent>
                   </Card>
 
                   <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                     <CardHeader>
-                      <CardTitle>Export</CardTitle>
+                      <CardTitle>Export de l’image</CardTitle>
                       <CardDescription>
-                        Choix du format final et du niveau de compression.
+                        Injectez vos données SEO puis téléchargez le fichier final.
                       </CardDescription>
                     </CardHeader>
 
-                    <CardContent className="grid gap-4">
+                    <CardContent className="grid gap-5">
                       <div className="grid gap-4 md:grid-cols-2">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">Format</label>
@@ -1051,41 +1237,36 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
-                        <div className="grid gap-3 md:grid-cols-2">
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Format final</p>
-                            <p className="mt-2 text-sm font-medium uppercase">{outputFormat}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Fichier final</p>
-                            <p className="mt-2 text-sm font-medium">
-                              {(seoFilename || 'image-seo')
-                                .toLowerCase()
-                                .replace(/[^a-z0-9]+/g, '-')
-                                .replace(/^-+|-+$/g, '') || 'image-seo'}
-                              .{outputFormat}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {imageResult && (
-                        <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
-                          <div className="mb-2 flex items-center justify-between">
-                            <span className="text-sm font-medium">Score SEO</span>
-                            <span className={cn('text-sm font-bold', scoreTone(imageResult.seoScore).cls)}>
-                              {imageResult.seoScore}/100 · {scoreTone(imageResult.seoScore).label}
-                            </span>
-                          </div>
-                          <div className="h-2 overflow-hidden rounded-full bg-secondary">
-                            <div
-                              className={cn('h-full rounded-full', scoreTone(imageResult.seoScore).bar)}
-                              style={{ width: `${imageResult.seoScore}%` }}
-                            />
-                          </div>
+                      {injectSuccess && (
+                        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4 text-sm text-emerald-300">
+                          <CheckCircle2 className="h-5 w-5" />
+                          SEO injecté avec succès.
                         </div>
                       )}
+
+                      {injectError && (
+                        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                          {injectError}
+                        </div>
+                      )}
+
+                      <div className="grid gap-3">
+                        <Button
+                          onClick={injectAndDownload}
+                          disabled={injectLoading || !imagePreview}
+                          className="h-14 rounded-full text-base"
+                          variant="brand"
+                        >
+                          <Download className="mr-2 h-5 w-5" />
+                          {injectLoading
+                            ? 'Injection en cours…'
+                            : `Télécharger ${outputFormat.toUpperCase()} avec SEO`}
+                        </Button>
+
+                        <p className="text-center text-sm text-muted-foreground">
+                          Modifiez les données puis réinjectez pour générer une nouvelle version.
+                        </p>
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
@@ -1096,8 +1277,8 @@ export default function DashboardPage() {
               <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                 <CardHeader className="flex flex-row items-center justify-between gap-4">
                   <div>
-                    <CardTitle>History</CardTitle>
-                    <CardDescription>Dernières analyses enregistrées.</CardDescription>
+                    <CardTitle>Historique</CardTitle>
+                    <CardDescription>Retrouvez vos dernières analyses sauvegardées.</CardDescription>
                   </div>
                   <Button onClick={fetchHistory} variant="outline" className="rounded-full">
                     Actualiser
@@ -1113,7 +1294,7 @@ export default function DashboardPage() {
                       </div>
                       <p className="text-lg font-bold">Aucune analyse enregistrée</p>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Lance une analyse dans Image Agent.
+                        Lancez une analyse dans Image Agent.
                       </p>
                     </div>
                   ) : (
@@ -1164,7 +1345,7 @@ export default function DashboardPage() {
                 <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                   <CardHeader>
                     <CardTitle>Créer un ticket</CardTitle>
-                    <CardDescription>Support client réel.</CardDescription>
+                    <CardDescription>Contactez le support depuis votre espace client.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <Button
@@ -1233,7 +1414,7 @@ export default function DashboardPage() {
                   <CardHeader className="flex flex-row items-center justify-between gap-4">
                     <div>
                       <CardTitle>Mes tickets</CardTitle>
-                      <CardDescription>Demandes envoyées depuis l’espace client.</CardDescription>
+                      <CardDescription>Suivez vos demandes envoyées au support.</CardDescription>
                     </div>
                     <Button onClick={fetchTickets} variant="outline" className="rounded-full">
                       Actualiser
@@ -1249,7 +1430,7 @@ export default function DashboardPage() {
                         </div>
                         <p className="text-lg font-bold">Aucun ticket</p>
                         <p className="mt-2 text-sm text-muted-foreground">
-                          Crée ton premier ticket si besoin.
+                          Créez votre premier ticket si besoin.
                         </p>
                       </div>
                     ) : (
@@ -1289,8 +1470,8 @@ export default function DashboardPage() {
             {section === 'settings' && (
               <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                 <CardHeader>
-                  <CardTitle>Settings</CardTitle>
-                  <CardDescription>Compte et navigation.</CardDescription>
+                  <CardTitle>Paramètres</CardTitle>
+                  <CardDescription>Compte, navigation et accès avancés.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-[24px] border border-white/10 bg-background/45 p-5">
@@ -1327,11 +1508,11 @@ export default function DashboardPage() {
 
                   <div className="rounded-[24px] border border-white/10 bg-background/45 p-5 md:col-span-2">
                     <div className="mb-3 flex items-center gap-3">
-                      <Shield className="h-5 w-5 text-brand" />
-                      <p className="font-semibold">État actuel</p>
+                      <Search className="h-5 w-5 text-brand" />
+                      <p className="font-semibold">Positionnement produit</p>
                     </div>
                     <p className="text-sm leading-7 text-muted-foreground">
-                      Cette version du dashboard n’affiche que les modules réellement branchés : Image Agent, History, Tickets et Settings.
+                      Votre espace est conçu pour analyser des visuels, éditer des métadonnées SEO, injecter les informations dans le fichier final et exporter des images prêtes à être publiées.
                     </p>
                   </div>
                 </CardContent>
@@ -1340,15 +1521,6 @@ export default function DashboardPage() {
           </main>
         </div>
       </div>
-    </div>
-  )
-}
-
-function InfoCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="mt-2 text-sm leading-7 text-muted-foreground">{value}</p>
     </div>
   )
 }
