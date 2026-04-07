@@ -141,6 +141,17 @@ export default function DashboardPage() {
   const [imageError, setImageError] = useState<string | null>(null)
   const [imageResult, setImageResult] = useState<SeoResult | null>(null)
 
+  const [seoFilename, setSeoFilename] = useState('')
+  const [seoTitle, setSeoTitle] = useState('')
+  const [seoAltText, setSeoAltText] = useState('')
+  const [seoDescription, setSeoDescription] = useState('')
+  const [seoKeywords, setSeoKeywords] = useState<string[]>([])
+  const [keywordInput, setKeywordInput] = useState('')
+  const [outputFormat, setOutputFormat] = useState<'jpg' | 'png' | 'webp'>('jpg')
+  const [outputQuality, setOutputQuality] = useState(85)
+  const [injectLoading, setInjectLoading] = useState(false)
+  const [injectError, setInjectError] = useState<string | null>(null)
+
   const [history, setHistory] = useState<AnalysisHistory[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
@@ -199,7 +210,6 @@ export default function DashboardPage() {
   )
 
   const latestScore = history[0]?.seo_score ?? imageResult?.seoScore ?? 0
-
   const latestHistory = history.slice(0, 3)
 
   const handleImageFile = (file: File) => {
@@ -214,6 +224,7 @@ export default function DashboardPage() {
     }
 
     setImageError(null)
+    setInjectError(null)
     setImageResult(null)
     setImageFile(file)
 
@@ -250,12 +261,109 @@ export default function DashboardPage() {
       }
 
       setImageResult(data)
+
+      const cleanBaseName =
+        (data?.metaTitle || imageFile.name.replace(/\.[^.]+$/, ''))
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'image-seo'
+
+      setSeoFilename(cleanBaseName)
+      setSeoTitle(data?.metaTitle || '')
+      setSeoAltText(data?.suggestedAltText || '')
+      setSeoDescription(data?.metaDescription || '')
+      setSeoKeywords(Array.isArray(data?.keywords) ? data.keywords : [])
+
       setSection('image-agent')
       fetchHistory()
     } catch {
       setImageError('Analyse impossible. Vérifie ta connexion.')
     } finally {
       setImageLoading(false)
+    }
+  }
+
+  const addKeyword = () => {
+    const value = keywordInput.trim()
+    if (!value) return
+    if (seoKeywords.includes(value)) {
+      setKeywordInput('')
+      return
+    }
+    setSeoKeywords((prev) => [...prev, value])
+    setKeywordInput('')
+  }
+
+  const removeKeyword = (value: string) => {
+    setSeoKeywords((prev) => prev.filter((k) => k !== value))
+  }
+
+  const resetImageAgent = () => {
+    setImagePreview(null)
+    setImageFile(null)
+    setImageResult(null)
+    setImageError(null)
+    setInjectError(null)
+    setSeoFilename('')
+    setSeoTitle('')
+    setSeoAltText('')
+    setSeoDescription('')
+    setSeoKeywords([])
+    setKeywordInput('')
+    setOutputFormat('jpg')
+    setOutputQuality(85)
+  }
+
+  const injectAndDownload = async () => {
+    if (!imagePreview) return
+
+    try {
+      setInjectLoading(true)
+      setInjectError(null)
+
+      const imageBase64 = imagePreview.split(',')[1]
+
+      const res = await fetch('/api/inject-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64,
+          filename: seoFilename,
+          title: seoTitle,
+          altText: seoAltText,
+          description: seoDescription,
+          keywords: seoKeywords,
+          format: outputFormat,
+          quality: outputQuality,
+        }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        setInjectError(data?.error || 'Injection impossible.')
+        return
+      }
+
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+
+      const safeFilename =
+        (seoFilename || 'image-seo')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'image-seo'
+
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${safeFilename}.${outputFormat}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch {
+      setInjectError('Erreur pendant le téléchargement.')
+    } finally {
+      setInjectLoading(false)
     }
   }
 
@@ -400,7 +508,6 @@ export default function DashboardPage() {
       <div className="border-t border-white/10 p-4">
         <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
           {session?.user?.image ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={session.user.image}
               alt="Avatar"
@@ -630,7 +737,7 @@ export default function DashboardPage() {
                       {[
                         {
                           title: 'Image Agent',
-                          desc: 'Uploader une image, analyser et récupérer le résultat SEO.',
+                          desc: 'Uploader une image, analyser, éditer, injecter et télécharger.',
                           section: 'image-agent' as Section,
                           icon: FileImage,
                         },
@@ -674,7 +781,7 @@ export default function DashboardPage() {
                   <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                     <CardHeader>
                       <CardTitle>Dernières analyses</CardTitle>
-                      <CardDescription>Lecture rapide sans texte inutile.</CardDescription>
+                      <CardDescription>Lecture rapide.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       {latestHistory.length === 0 ? (
@@ -731,19 +838,20 @@ export default function DashboardPage() {
             )}
 
             {section === 'image-agent' && (
-              <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+              <div className="grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
                 <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
                   <CardHeader>
                     <CardTitle>Image Agent</CardTitle>
                     <CardDescription>
-                      Upload image → analyse → résultat.
+                      Upload, analyse, édition, injection et téléchargement.
                     </CardDescription>
                   </CardHeader>
+
                   <CardContent className="space-y-4">
                     {!imagePreview ? (
                       <button
                         onClick={() => fileInputRef.current?.click()}
-                        className="group flex min-h-[280px] w-full flex-col items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-background/40 p-8 text-center transition hover:border-brand/30 hover:bg-brand/5"
+                        className="group flex min-h-[320px] w-full flex-col items-center justify-center rounded-[28px] border border-dashed border-white/15 bg-background/40 p-8 text-center transition hover:border-brand/30 hover:bg-brand/5"
                       >
                         <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-[22px] bg-brand/12">
                           <Upload className="h-7 w-7 text-brand" />
@@ -756,30 +864,34 @@ export default function DashboardPage() {
                     ) : (
                       <div className="space-y-4">
                         <div className="overflow-hidden rounded-[28px] border border-white/10 bg-background/40">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={imagePreview}
                             alt="Preview"
-                            className="h-[280px] w-full object-cover"
+                            className="h-[320px] w-full object-cover"
                           />
                         </div>
 
-                        <div className="flex flex-wrap gap-3">
+                        <div className="grid gap-3 sm:grid-cols-3">
                           <Button
                             onClick={analyzeImage}
                             disabled={imageLoading}
                             className="rounded-full"
                             variant="brand"
                           >
-                            {imageLoading ? 'Analyse en cours…' : 'Lancer l’analyse'}
+                            {imageLoading ? 'Analyse…' : 'Analyser'}
                           </Button>
+
                           <Button
-                            onClick={() => {
-                              setImagePreview(null)
-                              setImageFile(null)
-                              setImageResult(null)
-                              setImageError(null)
-                            }}
+                            onClick={injectAndDownload}
+                            disabled={injectLoading || !seoFilename || !seoTitle}
+                            className="rounded-full"
+                            variant="outline"
+                          >
+                            {injectLoading ? 'Injection…' : 'Injecter & Télécharger'}
+                          </Button>
+
+                          <Button
+                            onClick={resetImageAgent}
                             variant="outline"
                             className="rounded-full"
                           >
@@ -805,31 +917,160 @@ export default function DashboardPage() {
                         {imageError}
                       </div>
                     )}
+
+                    {injectError && (
+                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+                        {injectError}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
-                <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
-                  <CardHeader>
-                    <CardTitle>Résultat</CardTitle>
-                    <CardDescription>
-                      Sortie réelle de `/api/analyze`.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {!imageResult ? (
-                      <div className="flex min-h-[380px] items-center justify-center rounded-[28px] border border-white/10 bg-background/40 p-8 text-center">
-                        <div>
-                          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand/12">
-                            <FileImage className="h-6 w-6 text-brand" />
-                          </div>
-                          <h3 className="text-lg font-bold">Aucun résultat</h3>
-                          <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
-                            Charge une image puis lance l’analyse.
-                          </p>
+                <div className="grid gap-6">
+                  <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
+                    <CardHeader>
+                      <CardTitle>SEO fields</CardTitle>
+                      <CardDescription>
+                        Champs générés par l’agent, modifiables avant injection.
+                      </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="grid gap-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Filename</label>
+                          <input
+                            value={seoFilename}
+                            onChange={(e) => setSeoFilename(e.target.value)}
+                            placeholder="nom-de-fichier-seo"
+                            className="h-12 w-full rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Title</label>
+                          <input
+                            value={seoTitle}
+                            onChange={(e) => setSeoTitle(e.target.value)}
+                            placeholder="Titre SEO"
+                            className="h-12 w-full rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
+                          />
                         </div>
                       </div>
-                    ) : (
-                      <>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Alt text</label>
+                        <input
+                          value={seoAltText}
+                          onChange={(e) => setSeoAltText(e.target.value)}
+                          placeholder="Alt text"
+                          className="h-12 w-full rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Description</label>
+                        <textarea
+                          value={seoDescription}
+                          onChange={(e) => setSeoDescription(e.target.value)}
+                          placeholder="Meta description"
+                          className="min-h-[120px] w-full rounded-2xl border border-white/10 bg-background/60 px-4 py-3 text-sm outline-none transition focus:border-brand/30"
+                        />
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium">Keywords</label>
+
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                          <input
+                            value={keywordInput}
+                            onChange={(e) => setKeywordInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                addKeyword()
+                              }
+                            }}
+                            placeholder="Ajouter un mot-clé"
+                            className="h-12 flex-1 rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
+                          />
+                          <Button onClick={addKeyword} variant="outline" className="rounded-2xl">
+                            Ajouter
+                          </Button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          {seoKeywords.map((keyword) => (
+                            <button
+                              key={keyword}
+                              onClick={() => removeKeyword(keyword)}
+                              className="rounded-full border border-border bg-secondary px-3 py-1 text-xs text-muted-foreground transition hover:border-red-500/30 hover:text-red-300"
+                            >
+                              {keyword} ×
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="rounded-[32px] border-white/10 bg-card/60 backdrop-blur-xl">
+                    <CardHeader>
+                      <CardTitle>Export</CardTitle>
+                      <CardDescription>
+                        Choix du format final et du niveau de compression.
+                      </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="grid gap-4">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Format</label>
+                          <select
+                            value={outputFormat}
+                            onChange={(e) => setOutputFormat(e.target.value as 'jpg' | 'png' | 'webp')}
+                            className="h-12 w-full rounded-2xl border border-white/10 bg-background/60 px-4 text-sm outline-none transition focus:border-brand/30"
+                          >
+                            <option value="jpg">JPG</option>
+                            <option value="png">PNG</option>
+                            <option value="webp">WEBP</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Qualité: {outputQuality}</label>
+                          <input
+                            type="range"
+                            min={40}
+                            max={100}
+                            step={5}
+                            value={outputQuality}
+                            onChange={(e) => setOutputQuality(Number(e.target.value))}
+                            className="w-full accent-[hsl(var(--primary))]"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Format final</p>
+                            <p className="mt-2 text-sm font-medium uppercase">{outputFormat}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-muted-foreground">Fichier final</p>
+                            <p className="mt-2 text-sm font-medium">
+                              {(seoFilename || 'image-seo')
+                                .toLowerCase()
+                                .replace(/[^a-z0-9]+/g, '-')
+                                .replace(/^-+|-+$/g, '') || 'image-seo'}
+                              .{outputFormat}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {imageResult && (
                         <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
                           <div className="mb-2 flex items-center justify-between">
                             <span className="text-sm font-medium">Score SEO</span>
@@ -844,44 +1085,10 @@ export default function DashboardPage() {
                             />
                           </div>
                         </div>
-
-                        <InfoCard label="Alt text" value={imageResult.suggestedAltText} />
-                        <InfoCard label="Meta title" value={imageResult.metaTitle} />
-                        <InfoCard label="Meta description" value={imageResult.metaDescription} />
-
-                        <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                            Mots-clés
-                          </p>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {imageResult.keywords.map((k) => (
-                              <span
-                                key={k}
-                                className="rounded-full border border-border bg-secondary px-3 py-1 text-xs text-muted-foreground"
-                              >
-                                {k}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="rounded-2xl border border-white/10 bg-background/45 p-4">
-                          <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                            Améliorations
-                          </p>
-                          <ul className="mt-3 space-y-2">
-                            {imageResult.improvements.map((item, idx) => (
-                              <li key={idx} className="flex gap-2 text-sm text-muted-foreground">
-                                <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
               </div>
             )}
 
