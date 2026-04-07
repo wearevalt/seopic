@@ -1081,6 +1081,25 @@ function BackToTop() {
     </AnimatePresence>
   )
 }
+function TrustBar() {
+  return (
+    <section className="py-6">
+      <div className="container max-w-6xl">
+        <div className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
+          <span>E-commerce</span>
+          <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
+          <span>Agences</span>
+          <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
+          <span>Photographes</span>
+          <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
+          <span>Créateurs</span>
+          <span className="hidden h-1 w-1 rounded-full bg-border sm:inline-block" />
+          <span>Équipes growth</span>
+        </div>
+      </div>
+    </section>
+  )
+}
 
 export default function Home() {
   return (
