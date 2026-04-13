@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Providers from './providers'
+import { Analytics } from '@vercel/analytics/next'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://seopic.io'),
@@ -42,6 +43,7 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className="min-h-screen bg-background text-foreground">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   )
